@@ -21,7 +21,14 @@
   "description": "Barber App Backend - Node.js + TypeScript + Express + Prisma",
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
+    "@types/node": "^24.10.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -38,13 +45,6 @@
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/compression": "^1.8.1",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.5",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/morgan": "^1.9.10",
-    "@types/node": "^24.10.0",
     "concurrently": "^9.2.1",
     "nodemon": "^3.1.10",
     "prisma": "^6.19.0",
