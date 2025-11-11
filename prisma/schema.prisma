@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+  USER
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  phone         String?
+  avatar        String?
+  location      String?
+  role          UserRole       @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  country       String?
+  gender        String?
+  avatarSeed    String?
+  appointments  Appointment[]
+  refreshTokens RefreshToken[]
+  reviewList    Review[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Specialty {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  barbers     Barber[]
+
+  @@map("specialties")
+}
+
+model Workplace {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  address     String?
+  city        String?
+  description String?
+  image       String?
+  banner      String?
+  rating      Float           @default(0.0)
+  reviews     Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  barbers     Barber[]
+  reviewList  Review[]
+  media       WorkplaceMedia[]
+
+  @@map("workplaces")
+}
+
+model Barber {
+  id              String        @id @default(cuid())
+  name            String
+  email           String        @unique
+  specialty       String
+  specialtyId     String?
+  experienceYears Int
+  rating          Float         @default(0.0)
+  reviews         Int           @default(0)
+  price           Float?
+  distance        String?
+  location        String
+  latitude        Float?
+  longitude       Float?
+  image           String
+  bio             String?
+  workplaceId     String?
+  serviceType     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  appointments    Appointment[]
+  portfolio       BarberMedia[]
+  workplaceRef    Workplace?    @relation(fields: [workplaceId], references: [id])
+  specialtyRef    Specialty?    @relation(fields: [specialtyId], references: [id])
+  promotions      Promotion[]
+  services        Service[]
+  reviewList      Review[]
+  availability    BarberAvailability[]
+  availabilityExceptions BarberAvailabilityException[]
+
+  @@map("barbers")
+}
+
+model Service {
+  id          String        @id @default(cuid())
+  barberId    String
+  name        String
+  price       Float
+  description String?
+  includes    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  barber      Barber        @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([barberId])
+  @@map("services")
+}
+
+model BarberMedia {
+  id        String   @id @default(cuid())
+  barberId  String
+  type      String
+  url       String
+  thumbnail String?
+  caption   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId])
+  @@map("barber_media")
+}
+
+model WorkplaceMedia {
+  id          String    @id @default(cuid())
+  workplaceId String
+  type        String
+  url         String
+  thumbnail   String?
+  caption     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workplace   Workplace @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
+
+  @@index([workplaceId])
+  @@map("workplace_media")
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  userId        String
+  barberId      String
+  serviceId     String?
+  date          DateTime
+  time          String
+  status        String   @default("PENDING")
+  paymentMethod String?
+  paymentStatus String?  @default("PENDING") // PENDING, VERIFIED, REJECTED
+  paymentProof  String?  // URL del comprobante de pago
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  barber        Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service       Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@unique([barberId, date, time]) // Prevenir doble reserva del mismo slot
+  @@index([userId])
+  @@index([barberId])
+  @@index([date])
+  @@index([serviceId])
+  @@index([paymentStatus])
+  @@map("appointments")
+}
+
+model Promotion {
+  id             String   @id @default(cuid())
+  title          String
+  description    String
+  code           String   @unique
+  discount       Float?
+  discountAmount Float?
+  validFrom      DateTime
+  validUntil     DateTime
+  isActive       Boolean  @default(true)
+  image          String?
+  barberId       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  barber         Barber?  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([validUntil])
+  @@map("promotions")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String
+  barberId    String?
+  workplaceId String?
+  rating      Int      // 1-5
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  barber      Barber?  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  workplace   Workplace? @relation(fields: [workplaceId], references: [id], onDelete: Cascade)
+
+  @@index([barberId])
+  @@index([workplaceId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model PaymentMethod {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  icon        String?  // Emoji or icon name
+  type        String?  // "BINANCE", "PAGO_MOVIL", "EFECTIVO", "TRANSFERENCIA", etc.
+  config      Json?    // Configuración específica del método (datos de cuenta, teléfono, etc.)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payment_methods")
+}
+
+model BarberAvailability {
+  id          String   @id @default(cuid())
+  barberId    String
+  dayOfWeek   Int      // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  startTime   String   // "08:00"
+  endTime     String   // "18:00"
+  isAvailable Boolean  @default(true)
+  breakStart  String?  // "13:00" (opcional, hora de inicio del break)
+  breakEnd    String?  // "14:00" (opcional, hora de fin del break)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  barber      Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, dayOfWeek])
+  @@index([barberId])
+  @@map("barber_availability")
+}
+
+model BarberAvailabilityException {
+  id          String   @id @default(cuid())
+  barberId    String
+  date        DateTime // Fecha específica
+  isAvailable Boolean  // false = cerrado, true = horario especial
+  startTime   String?  // Si isAvailable = true, horario especial
+  endTime     String?
+  breakStart  String?
+  breakEnd    String?
+  reason      String?  // "Vacaciones", "Día festivo", etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  barber      Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, date])
+  @@index([barberId])
+  @@index([date])
+  @@map("barber_availability_exceptions")
+}

@@ -1,0 +1,87 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.log
+
+# Production
+build/
+dist/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Uploads (media files)
+uploads/
+backend/uploads/
+backoffice/uploads/
+
+# Flutter
+barber_app_flutter/.dart_tool/
+barber_app_flutter/.flutter-plugins
+barber_app_flutter/.flutter-plugins-dependencies
+barber_app_flutter/.packages
+barber_app_flutter/.pub-cache/
+barber_app_flutter/.pub/
+barber_app_flutter/build/
+barber_app_flutter/.flutter-plugins-dependencies
+barber_app_flutter/ios/Pods/
+barber_app_flutter/ios/.symlinks/
+barber_app_flutter/ios/Flutter/Flutter.framework
+barber_app_flutter/ios/Flutter/Flutter.podspec
+barber_app_flutter/android/.gradle/
+barber_app_flutter/android/app/debug/
+barber_app_flutter/android/app/profile/
+barber_app_flutter/android/app/release/
+
+# Prisma
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+backend/prisma/migrations/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+server_error.txt
+server_output.txt
+
+# Next.js
+backoffice/.next/
+backoffice/out/
+backoffice/.vercel
+
+# TypeScript
+*.tsbuildinfo
+

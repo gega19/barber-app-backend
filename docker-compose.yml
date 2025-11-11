@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: barber_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: barber_user
+      POSTGRES_PASSWORD: barber_password
+      POSTGRES_DB: barber_db
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U barber_user -d barber_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
