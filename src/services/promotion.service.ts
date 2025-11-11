@@ -45,6 +45,51 @@ export class PromotionService {
     });
   }
 
+  async getActivePromotionsByBarber(barberId: string) {
+    const now = new Date();
+    
+    const promotions = await prisma.promotion.findMany({
+      where: {
+        isActive: true,
+        barberId: barberId,
+        validFrom: {
+          lte: now,
+        },
+        validUntil: {
+          gte: now,
+        },
+      },
+      include: {
+        barber: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return promotions.map((promotion: any) => {
+      return {
+        id: promotion.id,
+        title: promotion.title,
+        description: promotion.description,
+        code: promotion.code,
+        discount: promotion.discount,
+        discountAmount: promotion.discountAmount,
+        validFrom: promotion.validFrom,
+        validUntil: promotion.validUntil,
+        isActive: promotion.isActive,
+        image: promotion.image,
+        barber: promotion.barber ? {
+          id: promotion.barber.id,
+          name: promotion.barber.name,
+          email: promotion.barber.email,
+        } : null,
+        createdAt: promotion.createdAt,
+        updatedAt: promotion.updatedAt,
+      };
+    });
+  }
+
   async getPromotionById(id: string) {
     const promotion = await prisma.promotion.findUnique({
       where: { id },

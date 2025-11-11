@@ -15,6 +15,28 @@ class PromotionController {
     }
   }
 
+  async getActivePromotionsByBarber(req: Request, res: Response): Promise<void> {
+    try {
+      const { barberId } = req.params;
+      if (!barberId) {
+        res.status(400).json({
+          success: false,
+          message: 'barberId is required',
+        });
+        return;
+      }
+
+      const promotions = await promotionService.getActivePromotionsByBarber(barberId);
+      res.status(200).json({
+        success: true,
+        data: promotions,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get promotions by barber';
+      res.status(500).json({ success: false, message });
+    }
+  }
+
   async getPromotionById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;

@@ -14,6 +14,7 @@ router.delete('/admin/:id', authenticate, requireRole('ADMIN'), promotionControl
 
 // Public routes (must be after admin routes)
 router.get('/', promotionController.getActivePromotions.bind(promotionController));
+router.get('/barber/:barberId', promotionController.getActivePromotionsByBarber.bind(promotionController));
 router.get('/:id', promotionController.getPromotionById.bind(promotionController));
 
 export default router;
