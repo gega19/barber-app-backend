@@ -23,7 +23,9 @@ import statsRoutes from './routes/stats.routes';
 import userRoutes from './routes/user.routes';
 import path from 'path';
 import express from 'express';
+import http from 'http';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { createSocketServer } from './socket/socket.server';
 
 const app = createApp();
 
@@ -106,8 +108,14 @@ const startServer = async () => {
       console.warn('⚠️  Server starting without database connection...');
     }
     
+    // Create HTTP server
+    const httpServer = http.createServer(app);
+    
+    // Initialize Socket.IO server
+    createSocketServer(httpServer);
+    
     // Start listening
-    app.listen(config.port, () => {
+    httpServer.listen(config.port, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
@@ -119,6 +127,7 @@ const startServer = async () => {
 ║                                                               ║
 ║   Health Check: http://localhost:${config.port}/health${' '.repeat(12)}║
 ║   API Docs:     http://localhost:${config.port}/api${' '.repeat(17)}║
+║   Socket.IO:    ws://localhost:${config.port.toString().padEnd(33)}║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
       `);

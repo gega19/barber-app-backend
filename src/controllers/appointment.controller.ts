@@ -205,6 +205,134 @@ class AppointmentController {
     }
   }
 
+  async cancelAppointment(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      const { id } = req.params;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized',
+        });
+        return;
+      }
+
+      // Verificar que el usuario es barbero y que la cita le pertenece
+      const barber = await prisma.barber.findUnique({
+        where: { email: req.user?.email },
+        select: { id: true },
+      });
+
+      if (!barber) {
+        res.status(403).json({
+          success: false,
+          message: 'Solo los barberos pueden cancelar citas',
+        });
+        return;
+      }
+
+      // Verificar que la cita pertenece a este barbero
+      const appointment = await prisma.appointment.findUnique({
+        where: { id },
+        select: { barberId: true },
+      });
+
+      if (!appointment) {
+        res.status(404).json({
+          success: false,
+          message: 'Cita no encontrada',
+        });
+        return;
+      }
+
+      if (appointment.barberId !== barber.id) {
+        res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para cancelar esta cita',
+        });
+        return;
+      }
+
+      // Cancelar la cita (marcar como CANCELLED en lugar de eliminarla)
+      await appointmentService.updateAppointment(id, {
+        status: 'CANCELLED',
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Cita cancelada exitosamente',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to cancel appointment';
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  async markAsAttended(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      const { id } = req.params;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized',
+        });
+        return;
+      }
+
+      // Verificar que el usuario es barbero y que la cita le pertenece
+      const barber = await prisma.barber.findUnique({
+        where: { email: req.user?.email },
+        select: { id: true },
+      });
+
+      if (!barber) {
+        res.status(403).json({
+          success: false,
+          message: 'Solo los barberos pueden marcar citas como atendidas',
+        });
+        return;
+      }
+
+      // Verificar que la cita pertenece a este barbero
+      const appointment = await prisma.appointment.findUnique({
+        where: { id },
+        select: { barberId: true, status: true },
+      });
+
+      if (!appointment) {
+        res.status(404).json({
+          success: false,
+          message: 'Cita no encontrada',
+        });
+        return;
+      }
+
+      if (appointment.barberId !== barber.id) {
+        res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para marcar esta cita como atendida',
+        });
+        return;
+      }
+
+      // Marcar la cita como COMPLETED (atendida)
+      await appointmentService.updateAppointment(id, {
+        status: 'COMPLETED',
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Cita marcada como atendida exitosamente',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to mark appointment as attended';
+      res.status(500).json({ success: false, message });
+    }
+  }
+
   async getPendingPaymentAppointments(req: Request, res: Response): Promise<void> {
     try {
       const page = parseInt(req.query.page as string) || 1;
@@ -246,6 +374,72 @@ class AppointmentController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to verify payment';
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  async getBarberQueue(req: Request, res: Response): Promise<void> {
+    try {
+      const { barberId } = req.params;
+      const dateParam = req.query.date as string | undefined;
+
+      if (!barberId) {
+        res.status(400).json({
+          success: false,
+          message: 'barberId is required',
+        });
+        return;
+      }
+
+      // Parsear fecha o usar hoy por defecto
+      let targetDate: Date;
+      if (dateParam) {
+        const [year, month, day] = dateParam.split('-').map(Number);
+        targetDate = new Date(year, month - 1, day);
+        
+        if (isNaN(targetDate.getTime())) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid date format. Use YYYY-MM-DD',
+          });
+          return;
+        }
+      } else {
+        // Usar hoy por defecto
+        targetDate = new Date();
+        targetDate.setHours(0, 0, 0, 0);
+      }
+
+      // Obtener citas del barbero para la fecha especificada
+      const appointments = await appointmentService.getAppointmentsByBarberId(barberId);
+      
+      // Filtrar por fecha y ordenar por hora
+      const dayStart = new Date(targetDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(targetDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const dayAppointments = appointments
+        .filter((apt: any) => {
+          const aptDate = new Date(apt.date);
+          return aptDate >= dayStart && aptDate <= dayEnd;
+        })
+        .sort((a: any, b: any) => {
+          // Ordenar por hora (formato HH:MM)
+          return a.time.localeCompare(b.time);
+        });
+
+      res.status(200).json({
+        success: true,
+        data: {
+          barberId,
+          date: dateParam || targetDate.toISOString().split('T')[0],
+          appointments: dayAppointments,
+          count: dayAppointments.length,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get barber queue';
       res.status(500).json({ success: false, message });
     }
   }

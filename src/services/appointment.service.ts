@@ -1,5 +1,7 @@
 import prisma from '../config/prisma';
 import barberAvailabilityService from './barber-availability.service';
+import { emitToBarberRoom } from '../socket/socket.server';
+import { AppointmentCreatedData, AppointmentUpdatedData, AppointmentCancelledData, AppointmentPaymentVerifiedData } from '../socket/socket.types';
 
 export class AppointmentService {
   async getAppointmentsByUserId(userId: string) {
@@ -238,10 +240,11 @@ export class AppointmentService {
         paymentMethodName = paymentMethod?.name || null;
       }
 
-      return {
+      const appointmentData = {
         id: appointment.id,
         barberId: appointment.barberId,
         serviceId: appointment.serviceId,
+        userId: appointment.userId,
         barber: {
           id: barber.id,
           name: barber.name,
@@ -269,6 +272,22 @@ export class AppointmentService {
         createdAt: appointment.createdAt,
         updatedAt: appointment.updatedAt,
       };
+
+      // Emitir evento de cita creada después de la transacción
+      // Hacerlo fuera de la transacción para evitar problemas
+      setImmediate(() => {
+        try {
+          emitToBarberRoom(
+            appointment.barberId,
+            'appointment:created',
+            appointmentData as AppointmentCreatedData
+          );
+        } catch (error) {
+          console.error('Error emitting appointment:created event:', error);
+        }
+      });
+
+      return appointmentData;
     });
   }
 
@@ -629,10 +648,8 @@ export class AppointmentService {
           },
         },
         barber: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+          include: {
+            specialtyRef: true,
           },
         },
         service: {
@@ -640,9 +657,17 @@ export class AppointmentService {
             id: true,
             name: true,
             price: true,
+            description: true,
           },
         },
       },
+    });
+
+    // Enriquecer con datos del usuario del barbero
+    const barber = appointment.barber;
+    const barberUser = await prisma.user.findUnique({
+      where: { email: barber.email },
+      select: { avatar: true, avatarSeed: true },
     });
 
     // Get payment method name if paymentMethod ID exists
@@ -655,7 +680,7 @@ export class AppointmentService {
       paymentMethodName = paymentMethod?.name || null;
     }
 
-    return {
+    const appointmentData = {
       id: appointment.id,
       userId: appointment.userId,
       barberId: appointment.barberId,
@@ -668,12 +693,22 @@ export class AppointmentService {
         avatar: appointment.user.avatar,
         avatarSeed: appointment.user.avatarSeed,
       },
-      barber: appointment.barber ? {
-        id: appointment.barber.id,
-        name: appointment.barber.name,
-        email: appointment.barber.email,
+      barber: {
+        id: barber.id,
+        name: barber.name,
+        email: barber.email,
+        specialty: barber.specialty,
+        rating: barber.rating,
+        image: barberUser?.avatar || barber.image,
+        avatarSeed: barberUser?.avatarSeed || null,
+        location: barber.location,
+      },
+      service: appointment.service ? {
+        id: appointment.service.id,
+        name: appointment.service.name,
+        price: appointment.service.price,
+        description: appointment.service.description,
       } : null,
-      service: appointment.service,
       date: appointment.date,
       time: appointment.time,
       status: appointment.status,
@@ -685,6 +720,21 @@ export class AppointmentService {
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
     };
+
+    // Emitir evento de pago verificado
+    if (appointment.barberId) {
+      try {
+        emitToBarberRoom(
+          appointment.barberId,
+          'appointment:payment-verified',
+          appointmentData as AppointmentPaymentVerifiedData
+        );
+      } catch (error) {
+        console.error('Error emitting appointment:payment-verified event:', error);
+      }
+    }
+
+    return appointmentData;
   }
 
   /**
@@ -744,7 +794,7 @@ export class AppointmentService {
       paymentMethodName = paymentMethod?.name || null;
     }
 
-    return {
+    const appointmentData = {
       id: appointment.id,
       userId: appointment.userId,
       barberId: appointment.barberId,
@@ -784,15 +834,59 @@ export class AppointmentService {
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
     };
+
+    // Emitir evento de cita actualizada
+    try {
+      emitToBarberRoom(
+        appointment.barberId,
+        'appointment:updated',
+        appointmentData as AppointmentUpdatedData
+      );
+    } catch (error) {
+      console.error('Error emitting appointment:updated event:', error);
+    }
+
+    return appointmentData;
   }
 
   /**
    * Elimina una cita (para admin)
    */
   async deleteAppointment(id: string) {
+    // Obtener información de la cita antes de eliminarla para emitir evento
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        barberId: true,
+        date: true,
+        time: true,
+      },
+    });
+
+    if (!appointment) {
+      throw new Error('Appointment not found');
+    }
+
     await prisma.appointment.delete({
       where: { id },
     });
+
+    // Emitir evento de cita cancelada
+    try {
+      emitToBarberRoom(
+        appointment.barberId,
+        'appointment:cancelled',
+        {
+          id: appointment.id,
+          barberId: appointment.barberId,
+          date: appointment.date,
+          time: appointment.time,
+        } as AppointmentCancelledData
+      );
+    } catch (error) {
+      console.error('Error emitting appointment:cancelled event:', error);
+    }
   }
 }
 

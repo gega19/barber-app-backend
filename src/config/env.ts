@@ -50,6 +50,12 @@ export const config = {
   bcrypt: {
     rounds: parseInt(process.env.BCRYPT_ROUNDS || '10', 10),
   },
+  
+  socket: {
+    pingTimeout: parseInt(process.env.SOCKET_PING_TIMEOUT || '60000', 10),
+    pingInterval: parseInt(process.env.SOCKET_PING_INTERVAL || '25000', 10),
+    corsOrigin: process.env.SOCKET_CORS_ORIGIN || process.env.CORS_ORIGIN || '*',
+  },
 };
 
 // Validate required environment variables

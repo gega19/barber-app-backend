@@ -32,7 +32,7 @@ export interface LoginDto {
 }
 
 export interface AuthResponse {
-  user: Omit<User, 'password'>;
+  user: Omit<User, 'password'> & { isBarber: boolean; barberId?: string };
   accessToken: string;
   refreshToken: string;
 }
@@ -102,10 +102,18 @@ export class AuthService {
       },
     });
 
+    // Verificar si el usuario tiene perfil de barbero (aunque sea nuevo, por si acaso)
+    const barber = await prisma.barber.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    });
+
     return {
       user: {
         ...user,
         role: user.role.toString() as 'ADMIN' | 'CLIENT' | 'USER',
+        isBarber: !!barber,
+        barberId: barber?.id,
       },
       accessToken,
       refreshToken,
@@ -176,6 +184,12 @@ export class AuthService {
       },
     });
 
+    // Verificar si el usuario tiene perfil de barbero
+    const barber = await prisma.barber.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    });
+
     return {
       user: {
         id: user.id,
@@ -190,6 +204,8 @@ export class AuthService {
         role: user.role.toString() as 'ADMIN' | 'CLIENT' | 'USER',
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        isBarber: !!barber,
+        barberId: barber?.id,
       },
       accessToken,
       refreshToken,
@@ -227,7 +243,7 @@ export class AuthService {
     return accessToken;
   }
 
-      async getCurrentUser(userId: string): Promise<Omit<User, 'password'> | null> {
+      async getCurrentUser(userId: string): Promise<(Omit<User, 'password'> & { isBarber: boolean; barberId?: string }) | null> {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -250,6 +266,12 @@ export class AuthService {
         return null;
       }
 
+      // Verificar si el usuario tiene perfil de barbero
+      const barber = await prisma.barber.findUnique({
+        where: { email: user.email },
+        select: { id: true },
+      });
+
       // Generate avatarSeed if user doesn't have one
       if (!user.avatarSeed) {
         const avatarSeed = `${user.email}-${Date.now()}`;
@@ -271,10 +293,18 @@ export class AuthService {
             updatedAt: true,
           },
         });
-        return updatedUser;
+        return {
+          ...updatedUser,
+          isBarber: !!barber,
+          barberId: barber?.id,
+        };
       }
 
-      return user;
+      return {
+        ...user,
+        isBarber: !!barber,
+        barberId: barber?.id,
+      };
     }
 
   async getUserStats(userId: string) {

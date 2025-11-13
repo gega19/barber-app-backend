@@ -8,6 +8,9 @@ const router = Router();
 // Public routes (authenticated users)
 router.get('/', authenticate, appointmentController.getMyAppointments.bind(appointmentController));
 router.post('/', authenticate, appointmentController.createAppointment.bind(appointmentController));
+router.get('/barber/:barberId/queue', authenticate, appointmentController.getBarberQueue.bind(appointmentController));
+router.put('/:id/cancel', authenticate, appointmentController.cancelAppointment.bind(appointmentController));
+router.put('/:id/attend', authenticate, appointmentController.markAsAttended.bind(appointmentController));
 
 // Admin routes
 router.get('/admin', authenticate, requireRole('ADMIN'), appointmentController.getAllAppointments.bind(appointmentController));
