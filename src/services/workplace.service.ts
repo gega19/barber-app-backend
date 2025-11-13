@@ -190,7 +190,7 @@ export class WorkplaceService {
 
     // Check if workplace has barbers
     if (workplace._count.barbers > 0) {
-      throw new Error('Cannot delete workplace with associated barbers. Please remove barbers first.');
+      throw new Error('No se puede eliminar la barbería porque tiene barberos activos trabajando ahí. Por favor, elimina o reasigna los barberos primero.');
     }
 
     // Delete workplace and related data in a transaction

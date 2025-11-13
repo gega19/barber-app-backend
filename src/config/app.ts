@@ -37,13 +37,67 @@ export const createApp = (): Application => {
 
   app.use(helmet(helmetConfig));
   
-  // CORS Configuration - Permitir todos los orígenes en desarrollo
-  app.use(cors({
-    origin: config.nodeEnv === 'development' ? true : config.cors.origin,
+  // Manejo manual de OPTIONS PRIMERO (antes de CORS) para asegurar que siempre responda
+  app.options('*', (req, res) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = config.nodeEnv === 'development' 
+      ? ['*']
+      : [
+          config.cors.origin,
+          'https://barber-app-backoffice.onrender.com',
+          'https://barber-app-backend-kj6s.onrender.com',
+        ].filter(Boolean);
+    
+    if (config.nodeEnv === 'development' || !origin || allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin || '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Max-Age', '86400');
+    }
+    res.sendStatus(200);
+  });
+  
+  // CORS Configuration
+  // En desarrollo, permitir todos los orígenes
+  // En producción, permitir el origen del backoffice y otros orígenes configurados
+  const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Permitir solicitudes sin origen (ej: Postman, mobile apps)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // En desarrollo, permitir todos
+      if (config.nodeEnv === 'development') {
+        return callback(null, true);
+      }
+      
+      // En producción, verificar contra orígenes permitidos
+      const allowedOrigins = [
+        config.cors.origin,
+        'https://barber-app-backoffice.onrender.com',
+        'https://barber-app-backend-kj6s.onrender.com',
+      ].filter(Boolean);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        // En lugar de rechazar, permitir si es un origen de Render
+        if (origin.includes('.onrender.com')) {
+          return callback(null, true);
+        }
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }));
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 horas
+  };
+  
+  app.use(cors(corsOptions));
   
   // Body Parser
   app.use(express.json());
