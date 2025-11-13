@@ -38,24 +38,28 @@ export const createApp = (): Application => {
   app.use(helmet(helmetConfig));
   
   // Manejo manual de OPTIONS PRIMERO (antes de CORS) para asegurar que siempre responda
-  app.options('*', (req, res) => {
-    const origin = req.headers.origin;
-    const allowedOrigins = config.nodeEnv === 'development' 
-      ? ['*']
-      : [
-          config.cors.origin,
-          'https://barber-app-backoffice.onrender.com',
-          'https://barber-app-backend-kj6s.onrender.com',
-        ].filter(Boolean);
-    
-    if (config.nodeEnv === 'development' || !origin || allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin || '*');
-      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-      res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Max-Age', '86400');
+  // Usar middleware en lugar de app.options('*') para compatibilidad con Express 5
+  app.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+      const origin = req.headers.origin;
+      const allowedOrigins = config.nodeEnv === 'development' 
+        ? ['*']
+        : [
+            config.cors.origin,
+            'https://barber-app-backoffice.onrender.com',
+            'https://barber-app-backend-kj6s.onrender.com',
+          ].filter(Boolean);
+      
+      if (config.nodeEnv === 'development' || !origin || allowedOrigins.includes(origin) || origin?.includes('.onrender.com')) {
+        res.header('Access-Control-Allow-Origin', origin || '*');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Max-Age', '86400');
+        return res.sendStatus(200);
+      }
     }
-    res.sendStatus(200);
+    next();
   });
   
   // CORS Configuration
