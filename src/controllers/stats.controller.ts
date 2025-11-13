@@ -18,6 +18,57 @@ class StatsController {
       });
     }
   }
+
+  async getAppointmentsByMonth(req: Request, res: Response): Promise<void> {
+    try {
+      const data = await statsService.getAppointmentsByMonth();
+      
+      res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get appointments by month';
+      res.status(500).json({
+        success: false,
+        message,
+      });
+    }
+  }
+
+  async getRevenueByMonth(req: Request, res: Response): Promise<void> {
+    try {
+      const data = await statsService.getRevenueByMonth();
+      
+      res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get revenue by month';
+      res.status(500).json({
+        success: false,
+        message,
+      });
+    }
+  }
+
+  async getAppointmentsByStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const data = await statsService.getAppointmentsByStatus();
+      
+      res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get appointments by status';
+      res.status(500).json({
+        success: false,
+        message,
+      });
+    }
+  }
 }
 
 export default new StatsController();
