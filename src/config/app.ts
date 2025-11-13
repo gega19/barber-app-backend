@@ -56,10 +56,11 @@ export const createApp = (): Application => {
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
         res.header('Access-Control-Allow-Credentials', 'true');
         res.header('Access-Control-Max-Age', '86400');
-        return res.sendStatus(200);
+        res.sendStatus(200);
+        return;
       }
     }
-    next();
+    return next();
   });
   
   // CORS Configuration
