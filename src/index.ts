@@ -115,19 +115,22 @@ const startServer = async () => {
     createSocketServer(httpServer);
     
     // Start listening
-    httpServer.listen(config.port, () => {
+    // In production (Render), listen on 0.0.0.0 to accept external connections
+    const host = config.nodeEnv === 'production' ? '0.0.0.0' : 'localhost';
+    httpServer.listen(config.port, host, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
 ║   🚀 Barber App Backend Server Running                        ║
 ║                                                               ║
 ║   Environment: ${config.nodeEnv.padEnd(47)}║
+║   Host:        ${host.padEnd(47)}║
 ║   Port:        ${config.port.toString().padEnd(47)}║
-║   URL:         http://localhost:${config.port.toString().padEnd(35)}║
+║   URL:         http://${host}:${config.port.toString().padEnd(35)}║
 ║                                                               ║
-║   Health Check: http://localhost:${config.port}/health${' '.repeat(12)}║
-║   API Docs:     http://localhost:${config.port}/api${' '.repeat(17)}║
-║   Socket.IO:    ws://localhost:${config.port.toString().padEnd(33)}║
+║   Health Check: http://${host}:${config.port}/health${' '.repeat(12)}║
+║   API Docs:     http://${host}:${config.port}/api${' '.repeat(17)}║
+║   Socket.IO:    ws://${host}:${config.port.toString().padEnd(33)}║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
       `);
