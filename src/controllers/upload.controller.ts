@@ -6,10 +6,13 @@ import { config } from '../config/env';
 // Configurar multer para memoria (no guardar en disco, subir directamente a Cloudinary)
 const storage = multer.memoryStorage();
 
+// Cloudinary free plan limit: 10 MB per file
+const CLOUDINARY_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: CLOUDINARY_MAX_FILE_SIZE, // 10MB limit (Cloudinary free plan)
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
@@ -32,6 +35,29 @@ const upload = multer({
 });
 
 export const uploadMiddleware = upload.single('file');
+
+// Middleware para manejar errores de tamaño de archivo
+export const handleUploadError = (err: any, req: any, res: any, next: any) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: `File too large. Maximum file size is 10 MB. Your file is ${(err as any).field ? 'too large' : 'exceeds the limit'}.`,
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: `Upload error: ${err.message}`,
+    });
+  }
+  if (err) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Upload error',
+    });
+  }
+  next();
+};
 
 export class UploadController {
   async uploadFile(req: Request, res: Response): Promise<void> {
@@ -105,11 +131,26 @@ export class UploadController {
         success: true,
         data: responseData,
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Manejar errores específicos de Cloudinary
+      if (error?.http_code === 400 && error?.message?.includes('File size too large')) {
+        res.status(400).json({
+          success: false,
+          message: 'File size too large. Maximum file size is 10 MB. Please compress or resize your file before uploading.',
+        });
+        return;
+      }
+
       const message = error instanceof Error ? error.message : 'Failed to upload file';
       console.error('Upload error:', error);
       console.error('Error details:', error instanceof Error ? error.stack : error);
-      res.status(500).json({ 
+      
+      // Determinar código de estado apropiado
+      const statusCode = error?.http_code && error.http_code >= 400 && error.http_code < 500 
+        ? error.http_code 
+        : 500;
+      
+      res.status(statusCode).json({ 
         success: false, 
         message,
         error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
