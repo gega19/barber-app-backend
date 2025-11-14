@@ -29,9 +29,11 @@ import { createSocketServer } from './socket/socket.server';
 
 const app = createApp();
 
-// Middleware para servir archivos estáticos con headers correctos
+// NOTA: Ya no servimos archivos estáticos desde /uploads porque ahora usamos Cloudinary
+// Los archivos se suben directamente a Cloudinary y se devuelve la URL completa
+// Si necesitas mantener compatibilidad con archivos antiguos, descomenta esto:
+/*
 app.use('/uploads', (req, res, next) => {
-  // Establecer headers CORS primero
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -46,10 +48,8 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   setHeaders: (res: express.Response, filePath: string, stat: any) => {
-    // Determinar Content-Type basado en extensión
     const ext = path.extname(filePath).toLowerCase();
     let contentType = 'application/octet-stream';
     
@@ -69,11 +69,11 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
       contentType = 'video/x-msvideo';
     }
     
-    // Establecer Content-Type explícitamente
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000');
   },
 }));
+*/
 
 // API Routes
 app.use('/api/auth', authRoutes);

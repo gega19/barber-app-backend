@@ -98,7 +98,12 @@ export class UploadController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to upload file';
       console.error('Upload error:', error);
-      res.status(500).json({ success: false, message });
+      console.error('Error details:', error instanceof Error ? error.stack : error);
+      res.status(500).json({ 
+        success: false, 
+        message,
+        error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      });
     }
   }
 

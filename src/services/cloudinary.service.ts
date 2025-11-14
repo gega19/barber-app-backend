@@ -2,6 +2,11 @@ import { v2 as cloudinary } from 'cloudinary';
 import { config } from '../config/env';
 
 // Configurar Cloudinary
+// Validar que las credenciales estén configuradas
+if (!config.cloudinary.cloudName || !config.cloudinary.apiKey || !config.cloudinary.apiSecret) {
+  console.error('⚠️  Cloudinary credentials not configured! Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.');
+}
+
 cloudinary.config({
   cloud_name: config.cloudinary.cloudName,
   api_key: config.cloudinary.apiKey,
