@@ -67,15 +67,22 @@ export class CloudinaryService {
         uploadOptions.resource_type = 'video';
       }
 
+      // Validar configuración antes de intentar subir
+      if (!config.cloudinary.cloudName || !config.cloudinary.apiKey || !config.cloudinary.apiSecret) {
+        reject(new Error('Cloudinary credentials not configured. Please set environment variables: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET'));
+        return;
+      }
+
       const uploadStream = cloudinary.uploader.upload_stream(
         uploadOptions,
         (error, result) => {
           if (error) {
+            console.error('Cloudinary upload error:', error);
             reject(error);
           } else if (result) {
             resolve(result as CloudinaryUploadResult);
           } else {
-            reject(new Error('Upload failed: No result returned'));
+            reject(new Error('Upload failed: No result returned from Cloudinary'));
           }
         }
       );

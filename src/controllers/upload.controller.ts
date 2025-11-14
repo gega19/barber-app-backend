@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import multer from 'multer';
 import cloudinaryService from '../services/cloudinary.service';
+import { config } from '../config/env';
 
 // Configurar multer para memoria (no guardar en disco, subir directamente a Cloudinary)
 const storage = multer.memoryStorage();
@@ -49,6 +50,15 @@ export class UploadController {
         res.status(400).json({
           success: false,
           message: 'No file uploaded',
+        });
+        return;
+      }
+
+      // Validar que Cloudinary esté configurado
+      if (!config.cloudinary.cloudName || !config.cloudinary.apiKey || !config.cloudinary.apiSecret) {
+        res.status(500).json({
+          success: false,
+          message: 'Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.',
         });
         return;
       }
