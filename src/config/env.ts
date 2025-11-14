@@ -56,6 +56,13 @@ export const config = {
     pingInterval: parseInt(process.env.SOCKET_PING_INTERVAL || '25000', 10),
     corsOrigin: process.env.SOCKET_CORS_ORIGIN || process.env.CORS_ORIGIN || '*',
   },
+  
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+    folder: process.env.CLOUDINARY_FOLDER || 'barber-app',
+  },
 };
 
 // Validate required environment variables

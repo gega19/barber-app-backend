@@ -1,24 +1,9 @@
 import { Request, Response } from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import cloudinaryService from '../services/cloudinary.service';
 
-const uploadsDir = path.join(__dirname, '../../uploads/media');
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  },
-});
+// Configurar multer para memoria (no guardar en disco, subir directamente a Cloudinary)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -68,20 +53,92 @@ export class UploadController {
         return;
       }
 
-      const fileUrl = `/uploads/media/${req.file.filename}`;
+      // Determinar tipo de recurso
+      const isVideo = req.file.mimetype.startsWith('video/');
+      const resourceType = isVideo ? 'video' : 'image';
+
+      // Generar nombre único
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const ext = req.file.originalname.split('.').pop() || '';
+      const fileName = `${req.file.fieldname}-${uniqueSuffix}.${ext}`;
+
+      // Subir a Cloudinary
+      const result = await cloudinaryService.uploadFile(
+        req.file.buffer,
+        fileName,
+        'barber-app',
+        {
+          resourceType: resourceType,
+          generateThumbnail: isVideo,
+        }
+      );
+
+      // Construir respuesta
+      const responseData: any = {
+        url: result.secure_url, // URL completa de Cloudinary
+        publicId: result.public_id, // ID público para futuras operaciones
+        filename: result.original_filename || req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: result.bytes || req.file.size,
+      };
+
+      // Agregar dimensiones si están disponibles
+      if (result.width) responseData.width = result.width;
+      if (result.height) responseData.height = result.height;
+
+      // Si es video y tiene thumbnail, agregarlo
+      if (isVideo && result.eager && result.eager.length > 0) {
+        responseData.thumbnail = result.eager[0].secure_url;
+      }
 
       res.status(200).json({
         success: true,
-        data: {
-          url: fileUrl,
-          filename: req.file.filename,
-          originalName: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size,
-        },
+        data: responseData,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to upload file';
+      console.error('Upload error:', error);
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  /**
+   * Endpoint opcional para eliminar archivos de Cloudinary
+   */
+  async deleteFile(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { publicId, resourceType } = req.body;
+
+      if (!publicId) {
+        res.status(400).json({
+          success: false,
+          message: 'publicId is required',
+        });
+        return;
+      }
+
+      await cloudinaryService.deleteFile(
+        publicId,
+        (resourceType as 'image' | 'video') || 'image'
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'File deleted successfully',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete file';
+      console.error('Delete error:', error);
       res.status(500).json({ success: false, message });
     }
   }

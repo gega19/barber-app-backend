@@ -5,5 +5,6 @@ import { authenticate } from '../middleware/auth.middleware';
 const router = Router();
 
 router.post('/', authenticate, uploadMiddleware, uploadController.uploadFile.bind(uploadController));
+router.delete('/', authenticate, uploadController.deleteFile.bind(uploadController));
 
 export default router;
