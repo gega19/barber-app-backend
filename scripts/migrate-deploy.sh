@@ -63,22 +63,46 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|P3009\|failed to apply\|found failed
     # Obtener todas las migraciones y ordenarlas
     MIGRATIONS=($(ls -1 "$MIGRATIONS_DIR" | grep -E '^[0-9]' | sort))
     
-    # Resolver la última migración como rolled-back (la que falló)
+    # Resolver la última migración
     if [ ${#MIGRATIONS[@]} -gt 0 ]; then
       last_migration="${MIGRATIONS[-1]}"
       echo "🔧 Resolving failed migration $last_migration..."
-      # Intentar resolver como rolled-back primero
-      npx prisma migrate resolve --rolled-back "$last_migration" 2>/dev/null || \
-      # Si eso falla, intentar resolver como aplicada (si ya se aplicó parcialmente)
-      npx prisma migrate resolve --applied "$last_migration" 2>/dev/null || true
+      
+      # Si el error indica que la tabla ya existe, marcar como aplicada
+      if echo "$MIGRATE_OUTPUT" | grep -q "already exists\|relation.*already exists"; then
+        echo "   Tables already exist, marking migration as applied..."
+        npx prisma migrate resolve --applied "$last_migration" 2>/dev/null || true
+      else
+        # Si no, intentar resolver como rolled-back primero
+        echo "   Marking migration as rolled-back..."
+        npx prisma migrate resolve --rolled-back "$last_migration" 2>/dev/null || \
+        # Si eso falla, intentar resolver como aplicada
+        npx prisma migrate resolve --applied "$last_migration" 2>/dev/null || true
+      fi
     fi
     
     # Intentar aplicar migraciones nuevamente
     echo "🔄 Retrying migration deployment..."
-    if npx prisma migrate deploy; then
+    RETRY_OUTPUT=$(npx prisma migrate deploy 2>&1)
+    RETRY_EXIT_CODE=$?
+    
+    if [ $RETRY_EXIT_CODE -eq 0 ]; then
+      echo "$RETRY_OUTPUT"
       echo "✅ Migrations applied successfully!"
       exit 0
     fi
+    
+    # Si el error es que la tabla ya existe, marcar como aplicada y salir
+    if echo "$RETRY_OUTPUT" | grep -q "already exists\|relation.*already exists"; then
+      echo "   Tables already exist, marking migration as applied..."
+      npx prisma migrate resolve --applied "$last_migration" 2>/dev/null || true
+      echo "✅ Migration marked as applied (tables already exist)"
+      exit 0
+    fi
+    
+    # Si aún falla, mostrar el error
+    echo "❌ Migration still failed after resolution attempt:"
+    echo "$RETRY_OUTPUT"
   fi
 fi
 
