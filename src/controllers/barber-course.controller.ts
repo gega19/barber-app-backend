@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import barberCourseService from '../services/barber-course.service';
-import prisma from '../config/prisma';
+import { verifyBarberOwnership, verifyCourseOwnership } from '../utils/barber-authorization.helper';
 
 class BarberCourseController {
   async getBarberCourses(req: Request, res: Response): Promise<void> {
@@ -42,68 +42,20 @@ class BarberCourseController {
 
   async createCourse(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { barberId } = req.params;
+      
+      // Verificar autorización
+      const isAuthorized = await verifyBarberOwnership(req, res, barberId);
+      if (!isAuthorized) return;
+
       const { title, institution, description, completedAt, duration } = req.body;
-
-      if (!title || title.trim().length < 3) {
-        res.status(400).json({
-          success: false,
-          message: 'Title is required and must be at least 3 characters',
-        });
-        return;
-      }
-
-      // Verificar que el barbero existe y pertenece al usuario
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      if (!user) {
-        res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
-        return;
-      }
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: barberId },
-        select: { email: true },
-      });
-
-      if (!barber) {
-        res.status(404).json({
-          success: false,
-          message: 'Barber not found',
-        });
-        return;
-      }
-
-      // Verificar que el usuario es el dueño del barbero
-      if (barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only create courses for your own barber profile',
-        });
-        return;
-      }
 
       const course = await barberCourseService.createCourse(barberId, {
         title: title.trim(),
-        institution: institution?.trim(),
-        description: description?.trim(),
+        institution: institution?.trim() || undefined,
+        description: description?.trim() || undefined,
         completedAt: completedAt ? new Date(completedAt) : undefined,
-        duration: duration?.trim(),
+        duration: duration?.trim() || undefined,
       });
 
       res.status(201).json({
@@ -112,66 +64,27 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create course';
+      console.error('Error creating course:', error);
       res.status(500).json({ success: false, message });
     }
   }
 
   async updateCourse(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { id } = req.params;
+      
+      // Verificar autorización
+      const isAuthorized = await verifyCourseOwnership(req, res, id);
+      if (!isAuthorized) return;
+
       const { title, institution, description, completedAt, duration } = req.body;
 
-      // Verificar que el curso existe y pertenece al usuario
-      const course = await barberCourseService.getCourseById(id);
-      if (!course) {
-        res.status(404).json({
-          success: false,
-          message: 'Course not found',
-        });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: course.barberId },
-        select: { email: true },
-      });
-
-      if (!user || !barber || barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only update courses for your own barber profile',
-        });
-        return;
-      }
-
-      if (title && title.trim().length < 3) {
-        res.status(400).json({
-          success: false,
-          message: 'Title must be at least 3 characters',
-        });
-        return;
-      }
-
       const updatedCourse = await barberCourseService.updateCourse(id, {
-        title: title?.trim(),
-        institution: institution?.trim(),
-        description: description?.trim(),
+        title: title?.trim() || undefined,
+        institution: institution?.trim() || undefined,
+        description: description?.trim() || undefined,
         completedAt: completedAt ? new Date(completedAt) : undefined,
-        duration: duration?.trim(),
+        duration: duration?.trim() || undefined,
       });
 
       res.status(200).json({
@@ -180,50 +93,18 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update course';
+      console.error('Error updating course:', error);
       res.status(500).json({ success: false, message });
     }
   }
 
   async deleteCourse(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { id } = req.params;
-
-      // Verificar que el curso existe y pertenece al usuario
-      const course = await barberCourseService.getCourseById(id);
-      if (!course) {
-        res.status(404).json({
-          success: false,
-          message: 'Course not found',
-        });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: course.barberId },
-        select: { email: true },
-      });
-
-      if (!user || !barber || barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only delete courses for your own barber profile',
-        });
-        return;
-      }
+      
+      // Verificar autorización
+      const isAuthorized = await verifyCourseOwnership(req, res, id);
+      if (!isAuthorized) return;
 
       await barberCourseService.deleteCourse(id);
 
@@ -233,6 +114,7 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete course';
+      console.error('Error deleting course:', error);
       res.status(500).json({ success: false, message });
     }
   }
@@ -254,59 +136,19 @@ class BarberCourseController {
 
   async createCourseMedia(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { courseId } = req.params;
+      
+      // Verificar autorización
+      const isAuthorized = await verifyCourseOwnership(req, res, courseId);
+      if (!isAuthorized) return;
+
       const { type, url, thumbnail, caption } = req.body;
-
-      if (!type || !url) {
-        res.status(400).json({
-          success: false,
-          message: 'Type and URL are required',
-        });
-        return;
-      }
-
-      // Verificar que el curso existe y pertenece al usuario
-      const course = await barberCourseService.getCourseById(courseId);
-      if (!course) {
-        res.status(404).json({
-          success: false,
-          message: 'Course not found',
-        });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: course.barberId },
-        select: { email: true },
-      });
-
-      if (!user || !barber || barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only add media to your own courses',
-        });
-        return;
-      }
 
       const media = await barberCourseService.createCourseMedia(courseId, {
         type,
         url,
-        thumbnail,
-        caption,
+        thumbnail: thumbnail || undefined,
+        caption: caption?.trim() || undefined,
       });
 
       res.status(201).json({
@@ -315,59 +157,27 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create course media';
+      console.error('Error creating course media:', error);
       res.status(500).json({ success: false, message });
     }
   }
 
   async createMultipleCourseMedia(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { courseId } = req.params;
       const { media } = req.body;
 
       if (!Array.isArray(media) || media.length === 0) {
         res.status(400).json({
           success: false,
-          message: 'Media array is required',
+          message: 'Media array is required and must not be empty',
         });
         return;
       }
 
-      // Verificar que el curso existe y pertenece al usuario
-      const course = await barberCourseService.getCourseById(courseId);
-      if (!course) {
-        res.status(404).json({
-          success: false,
-          message: 'Course not found',
-        });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: course.barberId },
-        select: { email: true },
-      });
-
-      if (!user || !barber || barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only add media to your own courses',
-        });
-        return;
-      }
+      // Verificar autorización
+      const isAuthorized = await verifyCourseOwnership(req, res, courseId);
+      if (!isAuthorized) return;
 
       const createdMedia = await barberCourseService.createMultipleCourseMedia(courseId, media);
 
@@ -377,25 +187,16 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create course media';
+      console.error('Error creating multiple course media:', error);
       res.status(500).json({ success: false, message });
     }
   }
 
   async updateCourseMedia(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { id } = req.params;
-      const { caption, thumbnail } = req.body;
-
-      // Verificar que el media existe y pertenece a un curso del usuario
+      
+      // Verificar que el media existe
       const media = await barberCourseService.getCourseMediaById(id);
       if (!media) {
         res.status(404).json({
@@ -405,36 +206,15 @@ class BarberCourseController {
         return;
       }
 
-      const course = await barberCourseService.getCourseById(media.courseId);
-      if (!course) {
-        res.status(404).json({
-          success: false,
-          message: 'Course not found',
-        });
-        return;
-      }
+      // Verificar autorización
+      const isAuthorized = await verifyCourseOwnership(req, res, media.courseId);
+      if (!isAuthorized) return;
 
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: course.barberId },
-        select: { email: true },
-      });
-
-      if (!user || !barber || barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only update media for your own courses',
-        });
-        return;
-      }
+      const { caption, thumbnail } = req.body;
 
       const updatedMedia = await barberCourseService.updateCourseMedia(id, {
-        caption,
-        thumbnail,
+        caption: caption?.trim() || undefined,
+        thumbnail: thumbnail || undefined,
       });
 
       res.status(200).json({
@@ -443,24 +223,16 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update course media';
+      console.error('Error updating course media:', error);
       res.status(500).json({ success: false, message });
     }
   }
 
   async deleteCourseMedia(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
-
       const { id } = req.params;
-
-      // Verificar que el media existe y pertenece a un curso del usuario
+      
+      // Verificar que el media existe
       const media = await barberCourseService.getCourseMediaById(id);
       if (!media) {
         res.status(404).json({
@@ -470,32 +242,9 @@ class BarberCourseController {
         return;
       }
 
-      const course = await barberCourseService.getCourseById(media.courseId);
-      if (!course) {
-        res.status(404).json({
-          success: false,
-          message: 'Course not found',
-        });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-
-      const barber = await prisma.barber.findUnique({
-        where: { id: course.barberId },
-        select: { email: true },
-      });
-
-      if (!user || !barber || barber.email !== user.email) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only delete media from your own courses',
-        });
-        return;
-      }
+      // Verificar autorización
+      const isAuthorized = await verifyCourseOwnership(req, res, media.courseId);
+      if (!isAuthorized) return;
 
       await barberCourseService.deleteCourseMedia(id);
 
@@ -505,6 +254,7 @@ class BarberCourseController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete course media';
+      console.error('Error deleting course media:', error);
       res.status(500).json({ success: false, message });
     }
   }
