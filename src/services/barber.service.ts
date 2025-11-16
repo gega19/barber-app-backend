@@ -59,6 +59,18 @@ export class BarberService {
       where: { id },
       include: {
         workplaceRef: true,
+        courses: {
+          include: {
+            media: {
+              orderBy: {
+                createdAt: 'asc',
+              },
+            },
+          },
+          orderBy: {
+            completedAt: 'desc',
+          },
+        },
       },
     });
 
