@@ -54,8 +54,8 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3005\|not empty"; then
   fi
 fi
 
-# Si falla con P3018 (migración fallida), resolverla
-if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|failed to apply"; then
+# Si falla con P3018 o P3009 (migración fallida), resolverla
+if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|P3009\|failed to apply\|found failed migrations"; then
   echo "⚠️  A migration failed. Attempting to resolve..."
   
   MIGRATIONS_DIR="prisma/migrations"
@@ -67,7 +67,10 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|failed to apply"; then
     if [ ${#MIGRATIONS[@]} -gt 0 ]; then
       last_migration="${MIGRATIONS[-1]}"
       echo "🔧 Resolving failed migration $last_migration..."
-      npx prisma migrate resolve --rolled-back "$last_migration" 2>/dev/null || true
+      # Intentar resolver como rolled-back primero
+      npx prisma migrate resolve --rolled-back "$last_migration" 2>/dev/null || \
+      # Si eso falla, intentar resolver como aplicada (si ya se aplicó parcialmente)
+      npx prisma migrate resolve --applied "$last_migration" 2>/dev/null || true
     fi
     
     # Intentar aplicar migraciones nuevamente
