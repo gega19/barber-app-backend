@@ -105,6 +105,7 @@ model Barber {
   reviewList      Review[]
   availability    BarberAvailability[]
   availabilityExceptions BarberAvailabilityException[]
+  courses         BarberCourse[]
 
   @@map("barbers")
 }
@@ -271,4 +272,36 @@ model BarberAvailabilityException {
   @@index([barberId])
   @@index([date])
   @@map("barber_availability_exceptions")
+}
+
+model BarberCourse {
+  id             String              @id @default(cuid())
+  barberId       String
+  title          String
+  institution    String?             // Institución donde realizó el curso
+  description    String?
+  completedAt    DateTime?           // Fecha de finalización
+  duration       String?             // Duración del curso (ej: "40 horas", "3 meses")
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  barber         Barber              @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  media          BarberCourseMedia[] // Múltiples documentos/fotos del curso
+
+  @@index([barberId])
+  @@map("barber_courses")
+}
+
+model BarberCourseMedia {
+  id        String       @id @default(cuid())
+  courseId  String
+  type      String       // "image", "document", "pdf", etc.
+  url       String       // URL del archivo en Cloudinary
+  thumbnail String?      // Thumbnail para imágenes
+  caption   String?      // Descripción del documento (ej: "Certificado", "Diploma", "Foto del curso")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  course    BarberCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@map("barber_course_media")
 }
