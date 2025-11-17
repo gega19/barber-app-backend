@@ -295,28 +295,32 @@ export class AppointmentService {
           // Obtener el usuario del barbero para obtener su userId
           const barberUser = await prisma.user.findUnique({
             where: { email: barber.email },
-            select: { id: true },
+            select: { id: true, email: true },
           });
 
-          if (barberUser) {
-            const clientName = await prisma.user.findUnique({
-              where: { id: data.userId },
-              select: { name: true },
-            });
-
-            const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
-            const serviceName = appointment.service?.name || 'Servicio';
-
-            await notificationService.sendNotificationToUser(barberUser.id, {
-              title: 'Nueva Cita Reservada',
-              body: `${clientName?.name || 'Un cliente'} ha reservado una cita para el ${dateTimeStr}`,
-              data: {
-                type: 'appointment_created',
-                appointmentId: appointment.id,
-                barberId: appointment.barberId,
-              },
-            });
+          if (!barberUser) {
+            console.log(`⚠️  No user found for barber email: ${barber.email} (barberId: ${appointment.barberId})`);
+            return;
           }
+
+          const clientName = await prisma.user.findUnique({
+            where: { id: data.userId },
+            select: { name: true },
+          });
+
+          const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
+
+          console.log(`📤 Sending notification to barber user: ${barberUser.id} (${barberUser.email}) for appointment: ${appointment.id}`);
+          
+          await notificationService.sendNotificationToUser(barberUser.id, {
+            title: 'Nueva Cita Reservada',
+            body: `${clientName?.name || 'Un cliente'} ha reservado una cita para el ${dateTimeStr}`,
+            data: {
+              type: 'appointment_created',
+              appointmentId: appointment.id,
+              barberId: appointment.barberId,
+            },
+          });
         } catch (error) {
           console.error('Error sending notification to barber:', error);
           // No fallar la operación si la notificación falla

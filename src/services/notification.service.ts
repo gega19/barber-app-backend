@@ -26,14 +26,16 @@ export class NotificationService {
       const tokens = await fcmTokenService.getUserTokens(userId);
       
       if (tokens.length === 0) {
-        console.log(`ℹ️  No FCM tokens found for user ${userId}`);
+        console.log(`ℹ️  No FCM tokens found for user ${userId}. User may not have logged in on a device yet.`);
         return;
       }
 
+      console.log(`📱 Found ${tokens.length} FCM token(s) for user ${userId}`);
       await this.sendNotificationToMultipleTokens(tokens, notification);
+      console.log(`✅ Notification sent successfully to user ${userId}`);
     } catch (error) {
-      console.error(`Error sending notification to user ${userId}:`, error);
-      throw error;
+      console.error(`❌ Error sending notification to user ${userId}:`, error);
+      // No lanzar error para no afectar la operación principal
     }
   }
 
