@@ -2,6 +2,8 @@ import prisma from '../config/prisma';
 import barberAvailabilityService from './barber-availability.service';
 import { emitToBarberRoom } from '../socket/socket.server';
 import { AppointmentCreatedData, AppointmentUpdatedData, AppointmentCancelledData, AppointmentPaymentVerifiedData } from '../socket/socket.types';
+import notificationService from './notification.service';
+import { formatDateTimeInSpanish } from '../utils/date-formatter';
 
 export class AppointmentService {
   async getAppointmentsByUserId(userId: string) {
@@ -284,6 +286,40 @@ export class AppointmentService {
           );
         } catch (error) {
           console.error('Error emitting appointment:created event:', error);
+        }
+      });
+
+      // Enviar notificación push al barbero
+      setImmediate(async () => {
+        try {
+          // Obtener el usuario del barbero para obtener su userId
+          const barberUser = await prisma.user.findUnique({
+            where: { email: barber.email },
+            select: { id: true },
+          });
+
+          if (barberUser) {
+            const clientName = await prisma.user.findUnique({
+              where: { id: data.userId },
+              select: { name: true },
+            });
+
+            const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
+            const serviceName = appointment.service?.name || 'Servicio';
+
+            await notificationService.sendNotificationToUser(barberUser.id, {
+              title: 'Nueva Cita Reservada',
+              body: `${clientName?.name || 'Un cliente'} ha reservado una cita para el ${dateTimeStr}`,
+              data: {
+                type: 'appointment_created',
+                appointmentId: appointment.id,
+                barberId: appointment.barberId,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Error sending notification to barber:', error);
+          // No fallar la operación si la notificación falla
         }
       });
 
@@ -734,6 +770,56 @@ export class AppointmentService {
       }
     }
 
+    // Enviar notificaciones push
+    setImmediate(async () => {
+      try {
+        const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
+        const barberUser = await prisma.user.findUnique({
+          where: { email: barber.email },
+          select: { id: true },
+        });
+
+        if (verified) {
+          // Pago verificado - notificar a cliente y barbero
+          await notificationService.sendNotificationToUser(appointment.userId, {
+            title: 'Pago Verificado ✅',
+            body: `Tu pago ha sido verificado. Tu cita con ${barber.name} está confirmada para el ${dateTimeStr}`,
+            data: {
+              type: 'payment_verified',
+              appointmentId: appointment.id,
+              userId: appointment.userId,
+            },
+          });
+
+          if (barberUser) {
+            await notificationService.sendNotificationToUser(barberUser.id, {
+              title: 'Pago Verificado',
+              body: `El pago de ${appointment.user.name} ha sido verificado. Cita confirmada para el ${dateTimeStr}`,
+              data: {
+                type: 'payment_verified',
+                appointmentId: appointment.id,
+                barberId: appointment.barberId,
+              },
+            });
+          }
+        } else {
+          // Pago rechazado - notificar solo al cliente
+          await notificationService.sendNotificationToUser(appointment.userId, {
+            title: 'Pago Rechazado ❌',
+            body: `Tu comprobante de pago ha sido rechazado. Por favor, sube un nuevo comprobante o contacta al barbero.`,
+            data: {
+              type: 'payment_rejected',
+              appointmentId: appointment.id,
+              userId: appointment.userId,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error sending payment verification notifications:', error);
+        // No fallar la operación si la notificación falla
+      }
+    });
+
     return appointmentData;
   }
 
@@ -748,6 +834,26 @@ export class AppointmentService {
     paymentStatus?: string;
     notes?: string;
   }) {
+    // Obtener la cita antes de actualizarla para detectar cambios
+    const oldAppointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        barber: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
     const appointment = await prisma.appointment.update({
       where: { id },
       data: {
@@ -846,6 +952,75 @@ export class AppointmentService {
       console.error('Error emitting appointment:updated event:', error);
     }
 
+    // Enviar notificaciones push según los cambios
+    setImmediate(async () => {
+      try {
+        if (!oldAppointment) return;
+
+        const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
+        const barberUser = await prisma.user.findUnique({
+          where: { email: barber.email },
+          select: { id: true },
+        });
+
+        // Detectar cambios en el estado
+        if (data.status && data.status !== oldAppointment.status) {
+          // Nota: Las cancelaciones se manejan en el controlador con contexto de quién canceló
+          // Solo enviamos notificación si se cancela desde otro lugar (ej: admin)
+          if (data.status === 'CANCELLED') {
+            // Solo notificar si no viene del controlador (el controlador maneja sus propias notificaciones)
+            // Por ahora, no enviamos notificación aquí para evitar duplicados
+            // El controlador de cancelAppointment maneja las notificaciones con el contexto correcto
+          } else if (data.status === 'COMPLETED') {
+            // Cita completada - notificar al cliente
+            await notificationService.sendNotificationToUser(appointment.userId, {
+              title: 'Cita Completada',
+              body: `Tu cita con ${barber.name} ha sido completada. ¡Gracias por tu visita!`,
+              data: {
+                type: 'appointment_completed',
+                appointmentId: appointment.id,
+                userId: appointment.userId,
+              },
+            });
+          }
+        }
+
+        // Detectar cambios en fecha o hora
+        const dateChanged = data.date && oldAppointment.date.getTime() !== appointment.date.getTime();
+        const timeChanged = data.time && oldAppointment.time !== appointment.time;
+
+        if (dateChanged || timeChanged) {
+          // Notificar a cliente y barbero sobre el cambio
+          await notificationService.sendNotificationToUser(appointment.userId, {
+            title: 'Cita Modificada',
+            body: `Tu cita con ${barber.name} ha sido modificada. Nueva fecha: ${dateTimeStr}`,
+            data: {
+              type: 'appointment_updated',
+              appointmentId: appointment.id,
+              userId: appointment.userId,
+              changeType: 'date_time',
+            },
+          });
+
+          if (barberUser) {
+            await notificationService.sendNotificationToUser(barberUser.id, {
+              title: 'Cita Modificada',
+              body: `La cita con ${appointment.user.name} ha sido modificada. Nueva fecha: ${dateTimeStr}`,
+              data: {
+                type: 'appointment_updated',
+                appointmentId: appointment.id,
+                barberId: appointment.barberId,
+                changeType: 'date_time',
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error sending update notifications:', error);
+        // No fallar la operación si la notificación falla
+      }
+    });
+
     return appointmentData;
   }
 
@@ -856,17 +1031,28 @@ export class AppointmentService {
     // Obtener información de la cita antes de eliminarla para emitir evento
     const appointment = await prisma.appointment.findUnique({
       where: { id },
-      select: {
-        id: true,
-        barberId: true,
-        date: true,
-        time: true,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        barber: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
     if (!appointment) {
       throw new Error('Appointment not found');
     }
+
+    const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
 
     await prisma.appointment.delete({
       where: { id },
@@ -887,6 +1073,43 @@ export class AppointmentService {
     } catch (error) {
       console.error('Error emitting appointment:cancelled event:', error);
     }
+
+    // Enviar notificaciones push
+    setImmediate(async () => {
+      try {
+        const barberUser = await prisma.user.findUnique({
+          where: { email: appointment.barber.email },
+          select: { id: true },
+        });
+
+        // Notificar al cliente
+        await notificationService.sendNotificationToUser(appointment.userId, {
+          title: 'Cita Eliminada',
+          body: `Tu cita con ${appointment.barber.name} para el ${dateTimeStr} ha sido eliminada`,
+          data: {
+            type: 'appointment_deleted',
+            appointmentId: appointment.id,
+            userId: appointment.userId,
+          },
+        });
+
+        // Notificar al barbero
+        if (barberUser) {
+          await notificationService.sendNotificationToUser(barberUser.id, {
+            title: 'Cita Eliminada',
+            body: `La cita con ${appointment.user.name} para el ${dateTimeStr} ha sido eliminada`,
+            data: {
+              type: 'appointment_deleted',
+              appointmentId: appointment.id,
+              barberId: appointment.barberId,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error sending delete notifications:', error);
+        // No fallar la operación si la notificación falla
+      }
+    });
   }
 }
 

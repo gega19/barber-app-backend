@@ -218,24 +218,24 @@ class AppointmentController {
         return;
       }
 
-      // Verificar que el usuario es barbero y que la cita le pertenece
-      const barber = await prisma.barber.findUnique({
-        where: { email: req.user?.email },
-        select: { id: true },
-      });
-
-      if (!barber) {
-        res.status(403).json({
-          success: false,
-          message: 'Solo los barberos pueden cancelar citas',
-        });
-        return;
-      }
-
-      // Verificar que la cita pertenece a este barbero
+      // Obtener la cita para verificar permisos
       const appointment = await prisma.appointment.findUnique({
         where: { id },
-        select: { barberId: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          barber: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
       });
 
       if (!appointment) {
@@ -246,7 +246,16 @@ class AppointmentController {
         return;
       }
 
-      if (appointment.barberId !== barber.id) {
+      // Verificar si el usuario es el cliente o el barbero
+      const barber = await prisma.barber.findUnique({
+        where: { email: req.user?.email },
+        select: { id: true },
+      });
+
+      const isClient = appointment.userId === userId;
+      const isBarber = barber && appointment.barberId === barber.id;
+
+      if (!isClient && !isBarber) {
         res.status(403).json({
           success: false,
           message: 'No tienes permiso para cancelar esta cita',
@@ -257,6 +266,50 @@ class AppointmentController {
       // Cancelar la cita (marcar como CANCELLED en lugar de eliminarla)
       await appointmentService.updateAppointment(id, {
         status: 'CANCELLED',
+      });
+
+      // Enviar notificación al otro usuario (cliente o barbero)
+      setImmediate(async () => {
+        try {
+          const notificationService = (await import('../services/notification.service')).default;
+          const { formatDateTimeInSpanish } = await import('../utils/date-formatter');
+          
+          const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
+
+          if (isClient) {
+            // Cliente canceló - notificar al barbero
+            const barberUser = await prisma.user.findUnique({
+              where: { email: appointment.barber.email },
+              select: { id: true },
+            });
+
+            if (barberUser) {
+              await notificationService.sendNotificationToUser(barberUser.id, {
+                title: 'Cita Cancelada',
+                body: `${appointment.user.name} ha cancelado la cita para el ${dateTimeStr}`,
+                data: {
+                  type: 'appointment_cancelled',
+                  appointmentId: appointment.id,
+                  barberId: appointment.barberId,
+                },
+              });
+            }
+          } else if (isBarber) {
+            // Barbero canceló - notificar al cliente
+            await notificationService.sendNotificationToUser(appointment.userId, {
+              title: 'Cita Cancelada',
+              body: `${appointment.barber.name} ha cancelado tu cita para el ${dateTimeStr}`,
+              data: {
+                type: 'appointment_cancelled',
+                appointmentId: appointment.id,
+                userId: appointment.userId,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Error sending cancellation notification:', error);
+          // No fallar la operación si la notificación falla
+        }
       });
 
       res.status(200).json({
