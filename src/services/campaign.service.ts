@@ -21,7 +21,9 @@ export class CampaignService {
         title: data.title,
         message: data.message,
         targetType: data.targetType,
-        targetUserIds: data.targetUserIds ? data.targetUserIds : null,
+        targetUserIds: data.targetUserIds && data.targetUserIds.length > 0 
+          ? data.targetUserIds 
+          : undefined,
         createdBy: data.createdBy,
       },
     });
