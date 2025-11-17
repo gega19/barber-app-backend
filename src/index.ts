@@ -22,11 +22,13 @@ import paymentMethodRoutes from './routes/payment-method.routes';
 import barberAvailabilityRoutes from './routes/barber-availability.routes';
 import statsRoutes from './routes/stats.routes';
 import userRoutes from './routes/user.routes';
+import fcmTokenRoutes from './routes/fcm-token.routes';
 import path from 'path';
 import express from 'express';
 import http from 'http';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { createSocketServer } from './socket/socket.server';
+import { initializeFirebaseAdmin } from './config/firebase-admin';
 
 const app = createApp();
 
@@ -93,6 +95,7 @@ app.use('/api/payment-methods', paymentMethodRoutes);
 app.use('/api/barber-availability', barberAvailabilityRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/fcm-tokens', fcmTokenRoutes);
 
 // Error Handling Middleware (must be last)
 app.use(notFoundHandler);
@@ -101,6 +104,9 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
   try {
+    // Initialize Firebase Admin SDK
+    initializeFirebaseAdmin();
+    
     // Test database connection
     try {
       await prisma.$connect();
