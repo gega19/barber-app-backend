@@ -23,6 +23,7 @@ import barberAvailabilityRoutes from './routes/barber-availability.routes';
 import statsRoutes from './routes/stats.routes';
 import userRoutes from './routes/user.routes';
 import fcmTokenRoutes from './routes/fcm-token.routes';
+import campaignRoutes from './routes/campaign.routes';
 import path from 'path';
 import express from 'express';
 import http from 'http';
@@ -96,6 +97,7 @@ app.use('/api/barber-availability', barberAvailabilityRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/fcm-tokens', fcmTokenRoutes);
+app.use('/api/campaigns', campaignRoutes);
 
 // Error Handling Middleware (must be last)
 app.use(notFoundHandler);

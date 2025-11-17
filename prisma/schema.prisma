@@ -320,3 +320,20 @@ model FcmToken {
   @@index([token])
   @@map("fcm_tokens")
 }
+
+model Campaign {
+  id            String   @id @default(cuid())
+  title         String   // Título de la notificación
+  message       String   // Mensaje/body de la notificación
+  targetType    String   // "all" | "specific_users" | "barbers_only" | "clients_only"
+  targetUserIds Json?    // Array de userIds si targetType es "specific_users"
+  sentAt        DateTime? // Fecha/hora en que se envió
+  sentCount     Int      @default(0) // Cantidad de notificaciones enviadas
+  createdBy     String?  // ID del usuario que creó la campaña
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([targetType])
+  @@index([createdAt])
+  @@map("campaigns")
+}
