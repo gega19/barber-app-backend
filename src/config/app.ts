@@ -50,7 +50,10 @@ export const createApp = (): Application => {
             'https://barber-app-backend-kj6s.onrender.com',
           ].filter(Boolean);
       
-      if (config.nodeEnv === 'development' || !origin || allowedOrigins.includes(origin) || origin?.includes('.onrender.com')) {
+      // Permitir orígenes locales (IPs privadas) para desarrollo/testing
+      const isLocalOrigin = origin && origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/);
+      
+      if (config.nodeEnv === 'development' || !origin || allowedOrigins.includes(origin) || origin?.includes('.onrender.com') || isLocalOrigin) {
         res.header('Access-Control-Allow-Origin', origin || '*');
         res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
         res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -85,7 +88,13 @@ export const createApp = (): Application => {
         'https://barber-app-backend-kj6s.onrender.com',
       ].filter(Boolean);
       
+      // Permitir orígenes locales (IPs privadas) para desarrollo/testing
+      const isLocalOrigin = origin.match(/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/);
+      
       if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else if (isLocalOrigin) {
+        // Permitir orígenes locales
         callback(null, true);
       } else {
         // En lugar de rechazar, permitir si es un origen de Render
