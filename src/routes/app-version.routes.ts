@@ -18,6 +18,10 @@ const router = Router();
 router.get('/version', appVersionController.getActiveVersion.bind(appVersionController));
 router.get(
   '/download/:versionId',
+  (req, res, next) => {
+    console.log(`🔍 Download route hit: /api/app/download/${req.params.versionId}`);
+    next();
+  },
   downloadVersionValidator,
   handleValidationErrors,
   appVersionController.downloadApk.bind(appVersionController)
