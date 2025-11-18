@@ -66,8 +66,11 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/fcm-tokens', fcmTokenRoutes);
 app.use('/api/campaigns', campaignRoutes);
-app.use('/api/app', appVersionRoutes);
 app.use('/api/legal', legalDocumentRoutes);
+
+// Rutas de app version (públicas y admin)
+app.use('/api/app', appVersionRoutes);
+app.use('/api/admin/app', appVersionRoutes);
 
 // Error Handling Middleware (must be last)
 app.use(notFoundHandler);

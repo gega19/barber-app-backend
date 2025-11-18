@@ -23,16 +23,16 @@ router.get(
   appVersionController.downloadApk.bind(appVersionController)
 );
 
-// Rutas admin
+// Rutas admin (sin prefijo /admin porque ya está en el path base)
 router.get(
-  '/admin/versions',
+  '/versions',
   authenticate,
   requireRole('ADMIN'),
   appVersionController.getAllVersions.bind(appVersionController)
 );
 
 router.get(
-  '/admin/versions/:id',
+  '/versions/:id',
   authenticate,
   requireRole('ADMIN'),
   getVersionValidator,
@@ -41,7 +41,7 @@ router.get(
 );
 
 router.post(
-  '/admin/versions',
+  '/versions',
   authenticate,
   requireRole('ADMIN'),
   uploadApkMiddleware,
@@ -51,7 +51,7 @@ router.post(
 );
 
 router.put(
-  '/admin/versions/:id',
+  '/versions/:id',
   authenticate,
   requireRole('ADMIN'),
   updateVersionValidator,
@@ -60,7 +60,7 @@ router.put(
 );
 
 router.put(
-  '/admin/versions/:id/activate',
+  '/versions/:id/activate',
   authenticate,
   requireRole('ADMIN'),
   activateVersionValidator,
@@ -69,7 +69,7 @@ router.put(
 );
 
 router.delete(
-  '/admin/versions/:id',
+  '/versions/:id',
   authenticate,
   requireRole('ADMIN'),
   deleteVersionValidator,
@@ -78,7 +78,7 @@ router.delete(
 );
 
 router.get(
-  '/admin/stats',
+  '/stats',
   authenticate,
   requireRole('ADMIN'),
   appVersionController.getDownloadStats.bind(appVersionController)
