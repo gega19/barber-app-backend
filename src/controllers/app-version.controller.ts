@@ -4,12 +4,16 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { config } from '../config/env';
+import cloudinaryService from '../services/cloudinary.service';
 
-// Configurar multer para almacenar APK en disco
-const APK_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'apk');
+// Configurar multer para almacenar APK en memoria (luego subir a Cloudinary)
+// Usamos memoryStorage porque vamos a subir directamente a Cloudinary
 const MAX_APK_SIZE = 100 * 1024 * 1024; // 100 MB
 
-// Asegurar que el directorio existe
+// También mantener almacenamiento en disco como fallback si Cloudinary no está configurado
+const APK_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'apk');
+
+// Asegurar que el directorio existe (para fallback)
 (async () => {
   try {
     await fs.mkdir(APK_UPLOAD_DIR, { recursive: true });
@@ -18,16 +22,8 @@ const MAX_APK_SIZE = 100 * 1024 * 1024; // 100 MB
   }
 })();
 
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    cb(null, APK_UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `app-${uniqueSuffix}${ext}`);
-  },
-});
+// Usar memoryStorage para subir a Cloudinary
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -98,9 +94,13 @@ export class AppVersionController {
   async downloadApk(req: Request, res: Response): Promise<void> {
     try {
       const { versionId } = req.params;
+      console.log(`📥 Download request for version ID: ${versionId}`);
+      
       const version = await appVersionService.getVersionById(versionId);
+      console.log(`✅ Version found: ${version.version} (${version.id}), isActive: ${version.isActive}, apkUrl: ${version.apkUrl}`);
 
       if (!version.isActive) {
+        console.log(`❌ Version ${versionId} is not active`);
         res.status(403).json({
           success: false,
           message: 'Esta versión no está disponible para descarga',
@@ -113,33 +113,43 @@ export class AppVersionController {
       const userAgent = req.get('user-agent') || undefined;
       await appVersionService.recordDownload(versionId, ipAddress, userAgent);
 
-      // Si es una URL local, servir el archivo
+      // Si es una URL local (fallback), intentar servir el archivo
       if (version.apkUrl.startsWith('/uploads/')) {
         const filePath = path.join(process.cwd(), version.apkUrl);
         const fileName = `barber-app-v${version.version}.apk`;
+        console.log(`📁 Looking for file at: ${filePath}`);
 
         try {
           // Verificar que el archivo existe
           await fs.access(filePath);
+          console.log(`✅ File exists, size: ${version.apkSize} bytes`);
 
           res.setHeader('Content-Type', 'application/vnd.android.package-archive');
           res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
           res.setHeader('Content-Length', version.apkSize.toString());
+          res.setHeader('Cache-Control', 'no-cache');
 
           // Leer y enviar el archivo
           const fileBuffer = await fs.readFile(filePath);
+          console.log(`✅ File read successfully, sending ${fileBuffer.length} bytes`);
           res.send(fileBuffer);
-        } catch (error) {
+        } catch (error: any) {
+          console.error(`❌ File access error: ${error.message}`);
+          console.error(`   File path: ${filePath}`);
+          console.error(`   Current working directory: ${process.cwd()}`);
           res.status(404).json({
             success: false,
-            message: 'Archivo APK no encontrado',
+            message: `Archivo APK no encontrado. Por favor, vuelve a subir el APK.`,
           });
         }
       } else {
-        // Si es una URL externa, redirigir
+        // Si es una URL externa (Cloudinary u otro), redirigir
+        console.log(`🔗 Redirecting to external URL: ${version.apkUrl}`);
         res.redirect(version.apkUrl);
       }
     } catch (error: any) {
+      console.error(`❌ Download error: ${error.message}`);
+      console.error(`   Stack: ${error.stack}`);
       res.status(404).json({
         success: false,
         message: error.message || 'Versión no encontrada',
@@ -217,10 +227,44 @@ export class AppVersionController {
         return;
       }
 
-      // Construir URL relativa del archivo
-      const apkUrl = `/uploads/apk/${req.file.filename}`;
+      let apkUrl: string;
       const apkSize = req.file.size;
       const createdBy = req.user?.userId;
+
+      // Intentar subir a Cloudinary primero (persistente)
+      try {
+        if (config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret) {
+          console.log('☁️  Uploading APK to Cloudinary...');
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = path.extname(req.file.originalname);
+          const fileName = `barber-app-v${version}-${uniqueSuffix}${ext}`;
+          
+          const cloudinaryResult = await cloudinaryService.uploadFile(
+            req.file.buffer,
+            fileName,
+            'barber-app/apk',
+            {
+              resourceType: 'raw', // Archivos binarios como APK
+            }
+          );
+          
+          apkUrl = cloudinaryResult.secure_url;
+          console.log(`✅ APK uploaded to Cloudinary: ${apkUrl}`);
+        } else {
+          throw new Error('Cloudinary not configured, using local storage');
+        }
+      } catch (error: any) {
+        // Fallback: guardar localmente si Cloudinary falla o no está configurado
+        console.warn(`⚠️  Cloudinary upload failed: ${error.message}, using local storage`);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = path.extname(req.file.originalname);
+        const filename = `app-${uniqueSuffix}${ext}`;
+        const filePath = path.join(APK_UPLOAD_DIR, filename);
+        
+        await fs.writeFile(filePath, req.file.buffer);
+        apkUrl = `/uploads/apk/${filename}`;
+        console.log(`📁 APK saved locally: ${apkUrl}`);
+      }
 
       const newVersion = await appVersionService.createVersion({
         version,
