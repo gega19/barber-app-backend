@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import appVersionController, { uploadApkMiddleware, handleApkUploadError } from '../controllers/app-version.controller';
@@ -18,7 +18,7 @@ const router = Router();
 router.get('/version', appVersionController.getActiveVersion.bind(appVersionController));
 router.get(
   '/download/:versionId',
-  (req, res, next) => {
+  (req: Request, res: Response, next: NextFunction) => {
     console.log(`🔍 Download route hit: /api/app/download/${req.params.versionId}`);
     next();
   },
