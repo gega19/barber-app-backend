@@ -137,9 +137,11 @@ export class AppVersionController {
           console.error(`❌ File access error: ${error.message}`);
           console.error(`   File path: ${filePath}`);
           console.error(`   Current working directory: ${process.cwd()}`);
+          console.error(`   ⚠️  This version was uploaded before Cloudinary integration. Please re-upload the APK from the backoffice.`);
           res.status(404).json({
             success: false,
-            message: `Archivo APK no encontrado. Por favor, vuelve a subir el APK.`,
+            message: `El archivo APK no se encuentra en el servidor. Esto puede ocurrir porque el archivo se perdió en un deploy anterior. Por favor, vuelve a subir el APK desde el backoffice para que se guarde en Cloudinary.`,
+            requiresReupload: true,
           });
         }
       } else {
