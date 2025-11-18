@@ -337,3 +337,54 @@ model Campaign {
   @@index([createdAt])
   @@map("campaigns")
 }
+
+model AppVersion {
+  id            String     @id @default(cuid())
+  version       String     // Versión semántica: "1.0.0"
+  versionCode   Int        @unique // Código de versión incremental: 1, 2, 3...
+  apkUrl        String     // URL del archivo APK
+  apkSize       Int        // Tamaño del archivo en bytes
+  releaseNotes  String?    // Notas de la versión (Markdown o texto plano)
+  isActive      Boolean    @default(false) // Solo una versión puede estar activa
+  downloadCount Int        @default(0) // Contador de descargas
+  createdBy     String?    // ID del usuario que subió la versión
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  downloads     Download[]
+
+  @@index([isActive])
+  @@index([versionCode])
+  @@index([createdAt])
+  @@map("app_versions")
+}
+
+model Download {
+  id          String      @id @default(cuid())
+  versionId   String
+  ipAddress   String?
+  userAgent   String?
+  downloadedAt DateTime   @default(now())
+  version     AppVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId])
+  @@index([downloadedAt])
+  @@map("downloads")
+}
+
+model LegalDocument {
+  id        String   @id @default(cuid())
+  type      String   // "privacy" | "terms" | "cookies"
+  title     String
+  content   String   // Markdown o HTML
+  version   Int      @default(1)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?  // ID del usuario que creó/actualizó el documento
+
+  @@unique([type, version])
+  @@index([type])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("legal_documents")
+}

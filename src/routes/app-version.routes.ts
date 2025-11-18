@@ -1,0 +1,88 @@
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/role.middleware';
+import appVersionController, { uploadApkMiddleware } from '../controllers/app-version.controller';
+import {
+  createVersionValidator,
+  updateVersionValidator,
+  activateVersionValidator,
+  deleteVersionValidator,
+  getVersionValidator,
+  downloadVersionValidator,
+} from '../validators/app-version.validator';
+import { handleValidationErrors } from '../middleware/validation.middleware';
+
+const router = Router();
+
+// Rutas públicas
+router.get('/version', appVersionController.getActiveVersion.bind(appVersionController));
+router.get(
+  '/download/:versionId',
+  downloadVersionValidator,
+  handleValidationErrors,
+  appVersionController.downloadApk.bind(appVersionController)
+);
+
+// Rutas admin
+router.get(
+  '/admin/versions',
+  authenticate,
+  requireRole('ADMIN'),
+  appVersionController.getAllVersions.bind(appVersionController)
+);
+
+router.get(
+  '/admin/versions/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  getVersionValidator,
+  handleValidationErrors,
+  appVersionController.getVersionById.bind(appVersionController)
+);
+
+router.post(
+  '/admin/versions',
+  authenticate,
+  requireRole('ADMIN'),
+  uploadApkMiddleware,
+  createVersionValidator,
+  handleValidationErrors,
+  appVersionController.createVersion.bind(appVersionController)
+);
+
+router.put(
+  '/admin/versions/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  updateVersionValidator,
+  handleValidationErrors,
+  appVersionController.updateVersion.bind(appVersionController)
+);
+
+router.put(
+  '/admin/versions/:id/activate',
+  authenticate,
+  requireRole('ADMIN'),
+  activateVersionValidator,
+  handleValidationErrors,
+  appVersionController.activateVersion.bind(appVersionController)
+);
+
+router.delete(
+  '/admin/versions/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  deleteVersionValidator,
+  handleValidationErrors,
+  appVersionController.deleteVersion.bind(appVersionController)
+);
+
+router.get(
+  '/admin/stats',
+  authenticate,
+  requireRole('ADMIN'),
+  appVersionController.getDownloadStats.bind(appVersionController)
+);
+
+export default router;
+

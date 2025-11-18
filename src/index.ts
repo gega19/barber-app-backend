@@ -24,6 +24,8 @@ import statsRoutes from './routes/stats.routes';
 import userRoutes from './routes/user.routes';
 import fcmTokenRoutes from './routes/fcm-token.routes';
 import campaignRoutes from './routes/campaign.routes';
+import appVersionRoutes from './routes/app-version.routes';
+import legalDocumentRoutes from './routes/legal-document.routes';
 import path from 'path';
 import express from 'express';
 import http from 'http';
@@ -33,51 +35,17 @@ import { initializeFirebaseAdmin } from './config/firebase-admin';
 
 const app = createApp();
 
-// NOTA: Ya no servimos archivos estáticos desde /uploads porque ahora usamos Cloudinary
-// Los archivos se suben directamente a Cloudinary y se devuelve la URL completa
-// Si necesitas mantener compatibilidad con archivos antiguos, descomenta esto:
-/*
-app.use('/uploads', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-  
-  next();
-});
-
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
-  setHeaders: (res: express.Response, filePath: string, stat: any) => {
-    const ext = path.extname(filePath).toLowerCase();
-    let contentType = 'application/octet-stream';
-    
-    if (['.jpg', '.jpeg'].includes(ext)) {
-      contentType = 'image/jpeg';
-    } else if (ext === '.png') {
-      contentType = 'image/png';
-    } else if (ext === '.gif') {
-      contentType = 'image/gif';
-    } else if (ext === '.webp') {
-      contentType = 'image/webp';
-    } else if (ext === '.mp4') {
-      contentType = 'video/mp4';
-    } else if (ext === '.mov') {
-      contentType = 'video/quicktime';
-    } else if (ext === '.avi') {
-      contentType = 'video/x-msvideo';
-    }
-    
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
+// Servir archivos APK estáticos
+app.use('/uploads/apk', express.static(path.join(__dirname, '../uploads/apk'), {
+  setHeaders: (res: express.Response, filePath: string) => {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
   },
 }));
-*/
+
+// NOTA: Ya no servimos otros archivos estáticos desde /uploads porque ahora usamos Cloudinary
+// Los archivos se suben directamente a Cloudinary y se devuelve la URL completa
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -98,6 +66,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/fcm-tokens', fcmTokenRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/app', appVersionRoutes);
+app.use('/api/legal', legalDocumentRoutes);
 
 // Error Handling Middleware (must be last)
 app.use(notFoundHandler);
