@@ -47,6 +47,30 @@ const upload = multer({
 
 export const uploadApkMiddleware = upload.single('apk');
 
+// Middleware para manejar errores de multer
+export const handleApkUploadError = (err: any, req: any, res: any, next: any) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: `El archivo APK es demasiado grande. El tamaño máximo es 100 MB.`,
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: `Error al subir archivo: ${err.message}`,
+    });
+  }
+  if (err) {
+    // Error del fileFilter u otro error de multer
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Error al procesar el archivo APK',
+    });
+  }
+  next();
+};
+
 export class AppVersionController {
   /**
    * GET /api/app/version
@@ -168,6 +192,10 @@ export class AppVersionController {
    */
   async createVersion(req: Request, res: Response): Promise<void> {
     try {
+      console.log('📦 Creating app version...');
+      console.log('📄 File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'No file');
+      console.log('📋 Body:', req.body);
+
       if (!req.file) {
         res.status(400).json({
           success: false,
@@ -176,12 +204,15 @@ export class AppVersionController {
         return;
       }
 
-      const { version, versionCode, releaseNotes } = req.body;
+      const { version, versionCode, releaseNotes, isActive } = req.body;
+
+      console.log('📝 Parsed data:', { version, versionCode, releaseNotes, isActive });
 
       if (!version || !versionCode) {
         res.status(400).json({
           success: false,
           message: 'version y versionCode son requeridos',
+          received: { version, versionCode },
         });
         return;
       }

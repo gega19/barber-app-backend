@@ -8,9 +8,10 @@ export const handleValidationErrors = (
 ): void => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    const errorMessages = errors.array().map(err => err.msg).join(', ');
     res.status(400).json({
       success: false,
-      message: 'Validation failed',
+      message: `Error de validación: ${errorMessages}`,
       errors: errors.array(),
     });
     return;

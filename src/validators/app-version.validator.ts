@@ -9,16 +9,26 @@ export const createVersionValidator = [
   body('versionCode')
     .notEmpty()
     .withMessage('El código de versión es requerido')
-    .isInt({ min: 1 })
-    .withMessage('El código de versión debe ser un número entero mayor a 0'),
+    .custom((value) => {
+      const num = parseInt(value, 10);
+      if (isNaN(num) || num < 1) {
+        throw new Error('El código de versión debe ser un número entero mayor a 0');
+      }
+      return true;
+    }),
   body('releaseNotes')
     .optional()
     .isString()
     .withMessage('Las notas de versión deben ser texto'),
   body('isActive')
     .optional()
-    .isBoolean()
-    .withMessage('isActive debe ser un booleano'),
+    .custom((value) => {
+      // Aceptar string "true"/"false" o booleano
+      if (value === 'true' || value === 'false' || value === true || value === false) {
+        return true;
+      }
+      throw new Error('isActive debe ser true o false');
+    }),
 ];
 
 export const updateVersionValidator = [

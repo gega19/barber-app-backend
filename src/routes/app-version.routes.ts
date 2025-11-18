@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
-import appVersionController, { uploadApkMiddleware } from '../controllers/app-version.controller';
+import appVersionController, { uploadApkMiddleware, handleApkUploadError } from '../controllers/app-version.controller';
 import {
   createVersionValidator,
   updateVersionValidator,
@@ -45,6 +45,7 @@ router.post(
   authenticate,
   requireRole('ADMIN'),
   uploadApkMiddleware,
+  handleApkUploadError,
   createVersionValidator,
   handleValidationErrors,
   appVersionController.createVersion.bind(appVersionController)
