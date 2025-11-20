@@ -6,9 +6,10 @@ import { requireRole } from '../middleware/role.middleware';
 const router = Router();
 
 // Public routes
+// IMPORTANTE: Las rutas más específicas deben ir ANTES de las rutas con parámetros
+router.get('/public/nearby', workplaceController.getNearbyWorkplaces.bind(workplaceController));
 router.get('/public', workplaceController.getWorkplaces.bind(workplaceController));
 router.get('/public/:id', workplaceController.getWorkplaceById.bind(workplaceController));
-router.get('/public/nearby', workplaceController.getNearbyWorkplaces.bind(workplaceController));
 
 // Protected routes (ADMIN only)
 router.get('/', authenticate, requireRole('ADMIN'), workplaceController.getAllWorkplaces.bind(workplaceController));
