@@ -62,7 +62,7 @@ class WorkplaceController {
 
   async createWorkplace(req: Request, res: Response): Promise<void> {
     try {
-      const { name, address, city, description, image, banner } = req.body;
+      const { name, address, city, latitude, longitude, description, image, banner } = req.body;
 
       if (!name) {
         res.status(400).json({
@@ -72,10 +72,16 @@ class WorkplaceController {
         return;
       }
 
+      // Parse coordinates if provided
+      const parsedLatitude = latitude !== undefined ? parseFloat(latitude) : undefined;
+      const parsedLongitude = longitude !== undefined ? parseFloat(longitude) : undefined;
+
       const workplace = await workplaceService.createWorkplace({
         name,
         address,
         city,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
         description,
         image,
         banner,
@@ -90,6 +96,8 @@ class WorkplaceController {
       const message = error instanceof Error ? error.message : 'Failed to create workplace';
       if (message.includes('already exists')) {
         res.status(409).json({ success: false, message });
+      } else if (message.includes('latitude') || message.includes('longitude') || message.includes('Both')) {
+        res.status(400).json({ success: false, message });
       } else {
         res.status(500).json({ success: false, message });
       }
@@ -99,12 +107,18 @@ class WorkplaceController {
   async updateWorkplace(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { name, address, city, description, image, banner } = req.body;
+      const { name, address, city, latitude, longitude, description, image, banner } = req.body;
+
+      // Parse coordinates if provided
+      const parsedLatitude = latitude !== undefined ? parseFloat(latitude) : undefined;
+      const parsedLongitude = longitude !== undefined ? parseFloat(longitude) : undefined;
 
       const workplace = await workplaceService.updateWorkplace(id, {
         name,
         address,
         city,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
         description,
         image,
         banner,
@@ -121,6 +135,8 @@ class WorkplaceController {
         res.status(404).json({ success: false, message });
       } else if (message.includes('already exists')) {
         res.status(409).json({ success: false, message });
+      } else if (message.includes('latitude') || message.includes('longitude') || message.includes('Both')) {
+        res.status(400).json({ success: false, message });
       } else {
         res.status(500).json({ success: false, message });
       }
@@ -145,6 +161,57 @@ class WorkplaceController {
       } else {
         res.status(500).json({ success: false, message });
       }
+    }
+  }
+
+  async getNearbyWorkplaces(req: Request, res: Response): Promise<void> {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      const radius = req.query.radius ? parseFloat(req.query.radius as string) : 5;
+
+      if (isNaN(lat) || isNaN(lng)) {
+        res.status(400).json({
+          success: false,
+          message: 'Valid latitude and longitude are required',
+        });
+        return;
+      }
+
+      if (lat < -90 || lat > 90) {
+        res.status(400).json({
+          success: false,
+          message: 'Latitude must be between -90 and 90',
+        });
+        return;
+      }
+
+      if (lng < -180 || lng > 180) {
+        res.status(400).json({
+          success: false,
+          message: 'Longitude must be between -180 and 180',
+        });
+        return;
+      }
+
+      if (radius < 0 || radius > 100) {
+        res.status(400).json({
+          success: false,
+          message: 'Radius must be between 0 and 100 kilometers',
+        });
+        return;
+      }
+
+      const workplaces = await workplaceService.getNearbyWorkplaces(lat, lng, radius);
+
+      res.status(200).json({
+        success: true,
+        data: workplaces,
+        message: `Found ${workplaces.length} workplace(s) within ${radius}km`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get nearby workplaces';
+      res.status(500).json({ success: false, message });
     }
   }
 }

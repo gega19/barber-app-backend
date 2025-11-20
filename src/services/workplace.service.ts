@@ -4,6 +4,8 @@ export interface CreateWorkplaceDto {
   name: string;
   address?: string;
   city?: string;
+  latitude?: number;
+  longitude?: number;
   description?: string;
   image?: string;
   banner?: string;
@@ -13,6 +15,8 @@ export interface UpdateWorkplaceDto {
   name?: string;
   address?: string;
   city?: string;
+  latitude?: number;
+  longitude?: number;
   description?: string;
   image?: string;
   banner?: string;
@@ -86,6 +90,80 @@ export class WorkplaceService {
     return workplaces;
   }
 
+  /**
+   * Get workplaces near a specific location
+   * @param latitude - Latitude of the center point
+   * @param longitude - Longitude of the center point
+   * @param radiusKm - Radius in kilometers (default: 5)
+   * @returns Array of workplaces with distance calculated
+   */
+  async getNearbyWorkplaces(latitude: number, longitude: number, radiusKm: number = 5) {
+    // Earth's radius in kilometers
+    const earthRadiusKm = 6371;
+
+    // Get all workplaces with coordinates
+    const workplaces = await prisma.workplace.findMany({
+      where: {
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+      include: {
+        _count: {
+          select: {
+            barbers: true,
+            reviewList: true,
+          },
+        },
+      },
+    });
+
+    // Calculate distance for each workplace and filter by radius
+    const workplacesWithDistance = workplaces
+      .map((workplace) => {
+        if (!workplace.latitude || !workplace.longitude) {
+          return null;
+        }
+
+        // Haversine formula to calculate distance
+        const dLat = this.degreesToRadians(workplace.latitude - latitude);
+        const dLon = this.degreesToRadians(workplace.longitude - longitude);
+
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(this.degreesToRadians(latitude)) *
+            Math.cos(this.degreesToRadians(workplace.latitude)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = earthRadiusKm * c;
+
+        return {
+          ...workplace,
+          distance: Math.round(distance * 100) / 100, // Round to 2 decimal places
+        };
+      })
+      .filter((wp) => wp !== null && wp.distance <= radiusKm) as Array<
+      typeof workplaces[0] & { distance: number }
+    >;
+
+    // Sort by distance (closest first)
+    workplacesWithDistance.sort((a, b) => a.distance - b.distance);
+
+    return workplacesWithDistance.map((workplace) => ({
+      ...workplace,
+      barbersCount: workplace._count.barbers,
+      reviewsCount: workplace._count.reviewList,
+    }));
+  }
+
+  /**
+   * Convert degrees to radians
+   */
+  private degreesToRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
   async getWorkplaceById(id: string) {
     const workplace = await prisma.workplace.findUnique({
       where: { id },
@@ -120,11 +198,31 @@ export class WorkplaceService {
       throw new Error('Workplace with this name already exists');
     }
 
+    // Validate coordinates: if one is provided, both must be provided
+    if ((data.latitude !== undefined && data.longitude === undefined) ||
+        (data.latitude === undefined && data.longitude !== undefined)) {
+      throw new Error('Both latitude and longitude must be provided together');
+    }
+
+    // Validate coordinate ranges
+    if (data.latitude !== undefined) {
+      if (data.latitude < -90 || data.latitude > 90) {
+        throw new Error('Latitude must be between -90 and 90');
+      }
+    }
+    if (data.longitude !== undefined) {
+      if (data.longitude < -180 || data.longitude > 180) {
+        throw new Error('Longitude must be between -180 and 180');
+      }
+    }
+
     const workplace = await prisma.workplace.create({
       data: {
         name: data.name,
         address: data.address,
         city: data.city,
+        latitude: data.latitude,
+        longitude: data.longitude,
         description: data.description,
         image: data.image,
         banner: data.banner,
@@ -155,12 +253,32 @@ export class WorkplaceService {
       }
     }
 
+    // Validate coordinates: if one is provided, both must be provided
+    if ((data.latitude !== undefined && data.longitude === undefined) ||
+        (data.latitude === undefined && data.longitude !== undefined)) {
+      throw new Error('Both latitude and longitude must be provided together');
+    }
+
+    // Validate coordinate ranges
+    if (data.latitude !== undefined) {
+      if (data.latitude < -90 || data.latitude > 90) {
+        throw new Error('Latitude must be between -90 and 90');
+      }
+    }
+    if (data.longitude !== undefined) {
+      if (data.longitude < -180 || data.longitude > 180) {
+        throw new Error('Longitude must be between -180 and 180');
+      }
+    }
+
     const workplace = await prisma.workplace.update({
       where: { id },
       data: {
         name: data.name,
         address: data.address,
         city: data.city,
+        latitude: data.latitude,
+        longitude: data.longitude,
         description: data.description,
         image: data.image,
         banner: data.banner,

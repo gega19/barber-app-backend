@@ -63,6 +63,8 @@ model Workplace {
   name        String          @unique
   address     String?
   city        String?
+  latitude    Float?
+  longitude   Float?
   description String?
   image       String?
   banner      String?
