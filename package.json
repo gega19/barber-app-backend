@@ -13,6 +13,10 @@
     "prisma:push": "prisma db push",
     "postinstall": "prisma generate",
     "migrate": "powershell -ExecutionPolicy Bypass -File ./migrate.ps1",
+    "seed": "ts-node scripts/seed-all.ts",
+    "seed:specialties": "ts-node prisma/seed-specialties.ts",
+    "seed:payment-methods": "node seed-payment-methods.js",
+    "seed:admin": "ts-node scripts/update-user-roles.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

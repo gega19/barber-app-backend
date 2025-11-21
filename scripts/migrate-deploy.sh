@@ -8,10 +8,22 @@ echo "🔄 Applying database migrations..."
 MIGRATE_OUTPUT=$(npx prisma migrate deploy 2>&1)
 MIGRATE_EXIT_CODE=$?
 
-# Si tiene éxito, salir
+# Si tiene éxito, ejecutar seed y salir
 if [ $MIGRATE_EXIT_CODE -eq 0 ]; then
   echo "$MIGRATE_OUTPUT"
   echo "✅ Migrations applied successfully!"
+  
+  # Ejecutar seed después de las migraciones
+  echo ""
+  echo "🌱 Running database seeds..."
+  npx ts-node scripts/seed-all.ts
+  
+  if [ $? -eq 0 ]; then
+    echo "✅ Seeding completed successfully!"
+  else
+    echo "⚠️  Seeding had errors, but continuing..."
+  fi
+  
   exit 0
 fi
 
@@ -49,6 +61,18 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3005\|not empty"; then
     echo "🔄 Retrying migration deployment for new migrations..."
     if npx prisma migrate deploy; then
       echo "✅ Migrations applied successfully!"
+      
+      # Ejecutar seed después de las migraciones
+      echo ""
+      echo "🌱 Running database seeds..."
+      npx ts-node scripts/seed-all.ts
+      
+      if [ $? -eq 0 ]; then
+        echo "✅ Seeding completed successfully!"
+      else
+        echo "⚠️  Seeding had errors, but continuing..."
+      fi
+      
       exit 0
     fi
   fi
@@ -89,6 +113,18 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|P3009\|failed to apply\|found failed
     if [ $RETRY_EXIT_CODE -eq 0 ]; then
       echo "$RETRY_OUTPUT"
       echo "✅ Migrations applied successfully!"
+      
+      # Ejecutar seed después de las migraciones
+      echo ""
+      echo "🌱 Running database seeds..."
+      npx ts-node scripts/seed-all.ts
+      
+      if [ $? -eq 0 ]; then
+        echo "✅ Seeding completed successfully!"
+      else
+        echo "⚠️  Seeding had errors, but continuing..."
+      fi
+      
       exit 0
     fi
     
@@ -97,6 +133,18 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|P3009\|failed to apply\|found failed
       echo "   Tables already exist, marking migration as applied..."
       npx prisma migrate resolve --applied "$last_migration" 2>/dev/null || true
       echo "✅ Migration marked as applied (tables already exist)"
+      
+      # Ejecutar seed después de las migraciones
+      echo ""
+      echo "🌱 Running database seeds..."
+      npx ts-node scripts/seed-all.ts
+      
+      if [ $? -eq 0 ]; then
+        echo "✅ Seeding completed successfully!"
+      else
+        echo "⚠️  Seeding had errors, but continuing..."
+      fi
+      
       exit 0
     fi
     
