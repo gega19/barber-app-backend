@@ -44,18 +44,58 @@ export class AppVersionService {
    * Obtiene todas las versiones (para admin)
    */
   async getAllVersions() {
-    return await prisma.appVersion.findMany({
-      orderBy: {
-        versionCode: 'desc',
-      },
-      include: {
-        _count: {
-          select: {
-            downloads: true,
-          },
+    try {
+      const versions = await prisma.appVersion.findMany({
+        orderBy: {
+          versionCode: 'desc',
         },
-      },
-    });
+        select: {
+          id: true,
+          version: true,
+          versionCode: true,
+          apkUrl: true,
+          apkSize: true,
+          releaseNotes: true,
+          isActive: true,
+          downloadCount: true,
+          createdBy: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      // Obtener el conteo real de descargas para cada versión
+      const versionsWithCounts = await Promise.all(
+        versions.map(async (version) => {
+          try {
+            const downloadCount = await prisma.download.count({
+              where: { versionId: version.id },
+            });
+            return {
+              ...version,
+              _count: {
+                downloads: downloadCount,
+              },
+            };
+          } catch (error: any) {
+            // Si falla el conteo, usar el downloadCount del modelo
+            console.warn(`Error counting downloads for version ${version.id}:`, error.message);
+            return {
+              ...version,
+              _count: {
+                downloads: version.downloadCount || 0,
+              },
+            };
+          }
+        })
+      );
+
+      return versionsWithCounts;
+    } catch (error: any) {
+      console.error('Error in getAllVersions:', error);
+      console.error('Error stack:', error.stack);
+      throw new Error(`Error al obtener versiones: ${error.message}`);
+    }
   }
 
   /**
