@@ -134,6 +134,20 @@ class BarberController {
       res.status(500).json({ success: false, message });
     }
   }
+
+  async getBarbersByWorkplace(req: Request, res: Response): Promise<void> {
+    try {
+      const { workplaceId } = req.params;
+      const barbers = await barberService.getBarbersByWorkplaceId(workplaceId);
+      res.status(200).json({
+        success: true,
+        data: barbers,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get barbers';
+      res.status(500).json({ success: false, message });
+    }
+  }
 }
 
 export default new BarberController();

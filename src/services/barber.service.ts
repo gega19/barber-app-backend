@@ -169,6 +169,35 @@ export class BarberService {
 
     return enrichedBarbers;
   }
+
+  async getBarbersByWorkplaceId(workplaceId: string) {
+    const barbers = await prisma.barber.findMany({
+      where: {
+        workplaceId: workplaceId,
+      },
+      orderBy: {
+        rating: 'desc',
+      },
+    });
+
+    // Enrich with user avatar data
+    const enrichedBarbers = await Promise.all(
+      barbers.map(async (barber: any) => {
+        const user = await prisma.user.findUnique({
+          where: { email: barber.email },
+          select: { avatar: true, avatarSeed: true },
+        });
+
+        return {
+          ...barber,
+          avatar: user?.avatar || barber.image,
+          avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
+        };
+      })
+    );
+
+    return enrichedBarbers;
+  }
 }
 
 export default new BarberService();
