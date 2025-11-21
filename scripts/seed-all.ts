@@ -76,7 +76,7 @@ async function seedAdminUser() {
           email: ADMIN_EMAIL,
           password: hashedPassword,
           name: ADMIN_NAME,
-          role: 'ADMIN',
+          role: 'ADMIN' as any, // Type assertion para evitar problemas de tipo
           avatarSeed: `${ADMIN_EMAIL}-${Date.now()}`,
         },
       });
@@ -90,12 +90,18 @@ async function seedAdminUser() {
       // Actualizar a ADMIN si ya existe
       await prisma.user.update({
         where: { id: existingAdmin.id },
-        data: { role: 'ADMIN' },
+        data: { role: 'ADMIN' as any }, // Type assertion
       });
       console.log(`✅ User ${ADMIN_EMAIL} updated to ADMIN role`);
     }
   } catch (error: any) {
     console.error(`❌ Error creating admin user:`, error.message);
+    if (error.message?.includes('UserRole') || error.message?.includes('does not exist')) {
+      console.error(`⚠️  The UserRole enum doesn't exist in the database.`);
+      console.error(`⚠️  Please run the migration: 20251121120000_fix_user_role_enum`);
+      console.error(`⚠️  Or run: npx prisma migrate deploy`);
+    }
+    throw error; // Re-throw para que el proceso falle si es crítico
   }
 
   console.log('✨ Admin user seeding completed!');
