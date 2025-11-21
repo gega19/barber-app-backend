@@ -101,7 +101,7 @@ class BarberAvailabilityController {
   async getAvailableSlots(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { date } = req.query;
+      const { date, currentTime } = req.query;
 
       if (!date) {
         res.status(400).json({
@@ -124,7 +124,23 @@ class BarberAvailabilityController {
         return;
       }
 
-      const slots = await barberAvailabilityService.getAvailableSlots(id, dateObj);
+      // Parsear currentTime si se proporciona (formato: "HH:MM")
+      let clientCurrentTime: string | null = null;
+      if (currentTime && typeof currentTime === 'string') {
+        // Validar formato HH:MM
+        if (/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(currentTime)) {
+          clientCurrentTime = currentTime;
+        } else {
+          // Si el formato es inválido, ignorarlo silenciosamente y usar hora del servidor
+          console.warn(`Invalid currentTime format: ${currentTime}. Using server time instead.`);
+        }
+      }
+
+      const slots = await barberAvailabilityService.getAvailableSlots(
+        id, 
+        dateObj,
+        clientCurrentTime // Pasar la hora del cliente
+      );
 
       res.status(200).json({
         success: true,

@@ -77,8 +77,9 @@ export class BarberAvailabilityService {
   /**
    * Obtiene los slots disponibles para una fecha específica
    * Considera: horario base, excepciones, y citas ya reservadas
+   * @param clientCurrentTime - Hora actual del cliente en formato "HH:MM" (opcional)
    */
-  async getAvailableSlots(barberId: string, date: Date) {
+  async getAvailableSlots(barberId: string, date: Date, clientCurrentTime?: string | null) {
     // Asegurar que usamos la fecha local sin problemas de timezone
     // Crear una nueva fecha con año, mes y día para evitar problemas de timezone
     const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -197,14 +198,27 @@ export class BarberAvailabilityService {
       localDate.getMonth() === today.getMonth() &&
       localDate.getDate() === today.getDate()
     ) {
-      const currentHour = now.getHours();
-      const currentMin = now.getMinutes();
-      const currentMinutes = currentHour * 60 + currentMin;
+      let currentMinutes: number;
+      
+      if (clientCurrentTime) {
+        // Usar la hora del cliente si se proporciona (más preciso para zonas horarias)
+        const [clientHour, clientMin] = clientCurrentTime.split(':').map(Number);
+        currentMinutes = clientHour * 60 + clientMin;
+      } else {
+        // Fallback: usar hora local del servidor (puede tener problemas de zona horaria)
+        const currentHour = now.getHours();
+        const currentMin = now.getMinutes();
+        currentMinutes = currentHour * 60 + currentMin;
+      }
+      
+      // Margen de 30 minutos para dar tiempo suficiente para reservar
+      const marginMinutes = 30;
+      const cutoffMinutes = currentMinutes + marginMinutes;
 
       return availableSlots.filter((slot) => {
         const [slotHour, slotMin] = slot.split(':').map(Number);
         const slotMinutes = slotHour * 60 + slotMin;
-        return slotMinutes > currentMinutes;
+        return slotMinutes >= cutoffMinutes;
       });
     }
 
