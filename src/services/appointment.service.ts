@@ -165,6 +165,7 @@ export class AppointmentService {
     paymentMethod: string;
     paymentProof?: string;
     notes?: string;
+    clientCurrentTime?: string | null;
   }) {
     // Usar transacción para prevenir race conditions
     return await prisma.$transaction(async (tx: any) => {
@@ -172,6 +173,7 @@ export class AppointmentService {
       const availableSlots = await barberAvailabilityService.getAvailableSlots(
         data.barberId,
         data.date,
+        data.clientCurrentTime, // Pasar la hora del cliente para validación correcta
       );
 
       if (!availableSlots.includes(data.time)) {

@@ -61,7 +61,7 @@ class AppointmentController {
         return;
       }
 
-      const { barberId, serviceId, date, time, paymentMethod, paymentProof, notes } = req.body;
+      const { barberId, serviceId, date, time, paymentMethod, paymentProof, notes, currentTime } = req.body;
 
       // Validaciones
       if (!barberId || !date || !time || !paymentMethod) {
@@ -70,6 +70,16 @@ class AppointmentController {
           message: 'Faltan campos requeridos: barberId, date, time, paymentMethod',
         });
         return;
+      }
+
+      // Validar formato de currentTime si se proporciona (formato: "HH:MM")
+      let clientCurrentTime: string | null = null;
+      if (currentTime && typeof currentTime === 'string') {
+        if (/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(currentTime)) {
+          clientCurrentTime = currentTime;
+        } else {
+          console.warn(`Invalid currentTime format: ${currentTime}. Using server time instead.`);
+        }
       }
 
       // Parsear la fecha
@@ -106,6 +116,7 @@ class AppointmentController {
         paymentMethod: paymentMethod as string,
         paymentProof: paymentProof as string | undefined,
         notes: notes as string | undefined,
+        clientCurrentTime: clientCurrentTime, // Pasar la hora del cliente
       });
 
       res.status(201).json({
