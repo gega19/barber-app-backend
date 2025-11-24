@@ -4,6 +4,44 @@
 
 echo "🔄 Applying database migrations..."
 
+# Función para esperar con reintentos
+wait_for_db() {
+  local max_attempts=10
+  local attempt=1
+  local wait_time=3
+  
+  echo "⏳ Waiting for database to be ready..."
+  
+  while [ $attempt -le $max_attempts ]; do
+    # Intentar conectar usando prisma migrate status (más ligero que migrate deploy)
+    if npx prisma migrate status > /dev/null 2>&1; then
+      echo "✅ Database is ready!"
+      return 0
+    fi
+    
+    # Si el error es de conexión, esperar y reintentar
+    if [ $attempt -lt $max_attempts ]; then
+      echo "   Attempt $attempt/$max_attempts: Database not ready, waiting ${wait_time}s..."
+      sleep $wait_time
+      attempt=$((attempt + 1))
+      wait_time=$((wait_time + 1)) # Incrementar tiempo de espera progresivamente
+    else
+      break
+    fi
+  done
+  
+  echo "⚠️  Database connection timeout after $max_attempts attempts"
+  return 1
+}
+
+# Esperar a que la base de datos esté lista
+if ! wait_for_db; then
+  echo "⚠️  Could not connect to database. This might be a temporary issue."
+  echo "⚠️  The server will start anyway, but migrations will need to be applied manually."
+  echo "⚠️  You can run migrations later with: npx prisma migrate deploy"
+  exit 0  # Salir con éxito para que el servidor pueda iniciar
+fi
+
 # Intentar aplicar migraciones y capturar output
 MIGRATE_OUTPUT=$(npx prisma migrate deploy 2>&1)
 MIGRATE_EXIT_CODE=$?
@@ -152,6 +190,17 @@ if echo "$MIGRATE_OUTPUT" | grep -q "P3018\|P3009\|failed to apply\|found failed
     echo "❌ Migration still failed after resolution attempt:"
     echo "$RETRY_OUTPUT"
   fi
+fi
+
+# Si aún falla, verificar si es un error de conexión
+if echo "$MIGRATE_OUTPUT" | grep -q "P1001\|Can't reach database\|connection\|ECONNREFUSED"; then
+  echo "⚠️  Database connection error detected."
+  echo "⚠️  This might be a temporary issue. The server will start anyway."
+  echo "⚠️  You can run migrations manually later with: npx prisma migrate deploy"
+  echo ""
+  echo "Error details:"
+  echo "$MIGRATE_OUTPUT"
+  exit 0  # Salir con éxito para que el servidor pueda iniciar
 fi
 
 # Si aún falla, mostrar el error
