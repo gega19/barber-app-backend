@@ -11,12 +11,20 @@ export interface CreateAppVersionData {
   releaseNotes?: string;
   createdBy?: string;
   isActive?: boolean;
+  minimumVersionCode?: number;
+  updateUrl?: string;
+  updateType?: string; // "store" | "url" | "apk"
+  forceUpdate?: boolean;
 }
 
 export interface UpdateAppVersionData {
   version?: string;
   releaseNotes?: string;
   isActive?: boolean;
+  minimumVersionCode?: number;
+  updateUrl?: string;
+  updateType?: string; // "store" | "url" | "apk"
+  forceUpdate?: boolean;
 }
 
 export class AppVersionService {
@@ -58,6 +66,10 @@ export class AppVersionService {
           releaseNotes: true,
           isActive: true,
           downloadCount: true,
+          minimumVersionCode: true,
+          updateUrl: true,
+          updateType: true,
+          forceUpdate: true,
           createdBy: true,
           createdAt: true,
           updatedAt: true,
@@ -133,6 +145,16 @@ export class AppVersionService {
       throw new Error(`Ya existe una versión con versionCode ${data.versionCode}`);
     }
 
+    // Validar que minimumVersionCode <= versionCode
+    if (data.minimumVersionCode !== undefined && data.minimumVersionCode > data.versionCode) {
+      throw new Error('minimumVersionCode no puede ser mayor que versionCode');
+    }
+
+    // Validar updateType si se proporciona
+    if (data.updateType && !['store', 'url', 'apk'].includes(data.updateType)) {
+      throw new Error('updateType debe ser "store", "url" o "apk"');
+    }
+
     // Si se marca como activa, desactivar todas las demás
     const isActive = data.isActive !== undefined ? data.isActive : false;
     if (isActive) {
@@ -151,6 +173,10 @@ export class AppVersionService {
         releaseNotes: data.releaseNotes,
         createdBy: data.createdBy,
         isActive,
+        minimumVersionCode: data.minimumVersionCode,
+        updateUrl: data.updateUrl,
+        updateType: data.updateType,
+        forceUpdate: data.forceUpdate ?? false,
       },
     });
   }
@@ -159,6 +185,26 @@ export class AppVersionService {
    * Actualiza una versión
    */
   async updateVersion(id: string, data: UpdateAppVersionData) {
+    // Obtener la versión actual para validaciones
+    const currentVersion = await prisma.appVersion.findUnique({
+      where: { id },
+    });
+
+    if (!currentVersion) {
+      throw new Error('Versión no encontrada');
+    }
+
+    // Validar que minimumVersionCode <= versionCode
+    const versionCode = currentVersion.versionCode;
+    if (data.minimumVersionCode !== undefined && data.minimumVersionCode > versionCode) {
+      throw new Error('minimumVersionCode no puede ser mayor que versionCode');
+    }
+
+    // Validar updateType si se proporciona
+    if (data.updateType && !['store', 'url', 'apk'].includes(data.updateType)) {
+      throw new Error('updateType debe ser "store", "url" o "apk"');
+    }
+
     // Si se activa esta versión, desactivar todas las demás
     if (data.isActive === true) {
       await prisma.appVersion.updateMany({
@@ -268,6 +314,24 @@ export class AppVersionService {
         date: item.downloadedAt,
         count: item._count.id,
       })),
+    };
+  }
+
+  /**
+   * Obtiene los requisitos de versión mínima de la versión activa
+   * Este método es usado por la app para verificar si necesita actualizarse
+   */
+  async getMinimumVersionRequirement() {
+    const activeVersion = await this.getActiveVersion();
+
+    return {
+      minimumVersionCode: activeVersion.minimumVersionCode,
+      currentVersionCode: activeVersion.versionCode,
+      currentVersion: activeVersion.version,
+      updateUrl: activeVersion.updateUrl,
+      updateType: activeVersion.updateType || 'apk', // Default a 'apk' si no está configurado
+      forceUpdate: activeVersion.forceUpdate,
+      apkUrl: activeVersion.apkUrl, // Incluir apkUrl por si updateType es 'apk'
     };
   }
 }

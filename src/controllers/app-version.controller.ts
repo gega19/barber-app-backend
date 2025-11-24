@@ -88,6 +88,26 @@ export class AppVersionController {
   }
 
   /**
+   * GET /api/app/minimum-version
+   * Obtiene los requisitos de versión mínima (público)
+   * Usado por la app para verificar si necesita actualizarse
+   */
+  async getMinimumVersionRequirement(req: Request, res: Response): Promise<void> {
+    try {
+      const requirement = await appVersionService.getMinimumVersionRequirement();
+      res.json({
+        success: true,
+        data: requirement,
+      });
+    } catch (error: any) {
+      res.status(404).json({
+        success: false,
+        message: error.message || 'No hay versión activa disponible',
+      });
+    }
+  }
+
+  /**
    * GET /api/app/download/:versionId
    * Descarga el APK (público, pero registra la descarga)
    */
@@ -216,9 +236,27 @@ export class AppVersionController {
         return;
       }
 
-      const { version, versionCode, releaseNotes, isActive } = req.body;
+      const { 
+        version, 
+        versionCode, 
+        releaseNotes, 
+        isActive,
+        minimumVersionCode,
+        updateUrl,
+        updateType,
+        forceUpdate,
+      } = req.body;
 
-      console.log('📝 Parsed data:', { version, versionCode, releaseNotes, isActive });
+      console.log('📝 Parsed data:', { 
+        version, 
+        versionCode, 
+        releaseNotes, 
+        isActive,
+        minimumVersionCode,
+        updateUrl,
+        updateType,
+        forceUpdate,
+      });
 
       if (!version || !versionCode) {
         res.status(400).json({
@@ -276,6 +314,10 @@ export class AppVersionController {
         releaseNotes: releaseNotes || undefined,
         createdBy,
         isActive: req.body.isActive === 'true' || req.body.isActive === true,
+        minimumVersionCode: minimumVersionCode ? parseInt(minimumVersionCode, 10) : undefined,
+        updateUrl: updateUrl || undefined,
+        updateType: updateType || undefined,
+        forceUpdate: forceUpdate === 'true' || forceUpdate === true,
       });
 
       res.status(201).json({
@@ -298,12 +340,28 @@ export class AppVersionController {
   async updateVersion(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { version, releaseNotes, isActive } = req.body;
+      const { 
+        version, 
+        releaseNotes, 
+        isActive,
+        minimumVersionCode,
+        updateUrl,
+        updateType,
+        forceUpdate,
+      } = req.body;
 
       const updateData: any = {};
       if (version) updateData.version = version;
       if (releaseNotes !== undefined) updateData.releaseNotes = releaseNotes;
       if (isActive !== undefined) updateData.isActive = isActive === 'true' || isActive === true;
+      if (minimumVersionCode !== undefined) {
+        updateData.minimumVersionCode = minimumVersionCode ? parseInt(minimumVersionCode, 10) : null;
+      }
+      if (updateUrl !== undefined) updateData.updateUrl = updateUrl || null;
+      if (updateType !== undefined) updateData.updateType = updateType || null;
+      if (forceUpdate !== undefined) {
+        updateData.forceUpdate = forceUpdate === 'true' || forceUpdate === true;
+      }
 
       const updatedVersion = await appVersionService.updateVersion(id, updateData);
 

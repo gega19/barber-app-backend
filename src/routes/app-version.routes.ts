@@ -16,6 +16,7 @@ const router = Router();
 
 // Rutas públicas
 router.get('/version', appVersionController.getActiveVersion.bind(appVersionController));
+router.get('/minimum-version', appVersionController.getMinimumVersionRequirement.bind(appVersionController));
 router.get(
   '/download/:versionId',
   (req: Request, res: Response, next: NextFunction) => {
