@@ -390,3 +390,23 @@ model LegalDocument {
   @@index([createdAt])
   @@map("legal_documents")
 }
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // "user_action" | "system_event" | "error" | "performance"
+  eventName   String   // Nombre específico del evento (ej: "appointment_created")
+  platform    String   // "app" | "landing" | "backend"
+  userId      String?  // ID del usuario (si aplica)
+  sessionId   String?  // ID de sesión
+  properties  Json?    // Propiedades adicionales del evento
+  metadata    Json?    // Metadata técnica (userAgent, IP, appVersion, etc.)
+  createdAt   DateTime @default(now())
+
+  @@index([eventType, createdAt])        // Filtrar por tipo y fecha
+  @@index([eventName, createdAt])        // Filtrar por nombre y fecha
+  @@index([platform, createdAt])       // Filtrar por plataforma y fecha
+  @@index([userId, createdAt])          // Eventos de un usuario
+  @@index([createdAt])                  // Ordenar por fecha
+  @@index([sessionId])                  // Eventos de una sesión
+  @@map("analytics_events")
+}
