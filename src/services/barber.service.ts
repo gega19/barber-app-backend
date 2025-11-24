@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import { validateAndNormalizeInstagram, validateAndNormalizeTikTok } from '../utils/social-media.validator';
 
 export class BarberService {
   async getBarbers() {
@@ -107,6 +108,8 @@ export class BarberService {
     location?: string;
     latitude?: number;
     longitude?: number;
+    instagramUrl?: string | null;
+    tiktokUrl?: string | null;
   }) {
     const updateData: {
       specialty?: string;
@@ -115,6 +118,8 @@ export class BarberService {
       location?: string;
       latitude?: number;
       longitude?: number;
+      instagramUrl?: string | null;
+      tiktokUrl?: string | null;
     } = {};
     
     if (data.specialty !== undefined) updateData.specialty = data.specialty;
@@ -123,6 +128,23 @@ export class BarberService {
     if (data.location !== undefined) updateData.location = data.location;
     if (data.latitude !== undefined) updateData.latitude = data.latitude;
     if (data.longitude !== undefined) updateData.longitude = data.longitude;
+
+    // Validar y normalizar redes sociales
+    if (data.instagramUrl !== undefined) {
+      const instagramValidation = validateAndNormalizeInstagram(data.instagramUrl);
+      if (!instagramValidation.isValid) {
+        throw new Error(instagramValidation.error || 'Invalid Instagram URL');
+      }
+      updateData.instagramUrl = instagramValidation.normalizedUrl;
+    }
+
+    if (data.tiktokUrl !== undefined) {
+      const tiktokValidation = validateAndNormalizeTikTok(data.tiktokUrl);
+      if (!tiktokValidation.isValid) {
+        throw new Error(tiktokValidation.error || 'Invalid TikTok URL');
+      }
+      updateData.tiktokUrl = tiktokValidation.normalizedUrl;
+    }
 
     const barber = await prisma.barber.update({
       where: { email },

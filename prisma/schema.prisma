@@ -70,6 +70,8 @@ model Workplace {
   banner      String?
   rating      Float           @default(0.0)
   reviews     Int             @default(0)
+  instagramUrl String?
+  tiktokUrl   String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   barbers     Barber[]
@@ -97,6 +99,8 @@ model Barber {
   bio             String?
   workplaceId     String?
   serviceType     String?
+  instagramUrl    String?
+  tiktokUrl       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   appointments    Appointment[]

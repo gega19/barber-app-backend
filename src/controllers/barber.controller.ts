@@ -64,7 +64,16 @@ class BarberController {
         return;
       }
 
-      const { specialty, specialtyId, experienceYears, location, latitude, longitude } = req.body;
+      const { 
+        specialty, 
+        specialtyId, 
+        experienceYears, 
+        location, 
+        latitude, 
+        longitude,
+        instagramUrl,
+        tiktokUrl
+      } = req.body;
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -99,6 +108,8 @@ class BarberController {
         location,
         latitude: latitude ? parseFloat(latitude) : undefined,
         longitude: longitude ? parseFloat(longitude) : undefined,
+        instagramUrl: instagramUrl !== undefined ? instagramUrl : undefined,
+        tiktokUrl: tiktokUrl !== undefined ? tiktokUrl : undefined,
       });
 
       res.status(200).json({

@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import { validateAndNormalizeInstagram, validateAndNormalizeTikTok } from '../utils/social-media.validator';
 
 export interface CreateWorkplaceDto {
   name: string;
@@ -9,6 +10,8 @@ export interface CreateWorkplaceDto {
   description?: string;
   image?: string;
   banner?: string;
+  instagramUrl?: string | null;
+  tiktokUrl?: string | null;
 }
 
 export interface UpdateWorkplaceDto {
@@ -20,6 +23,8 @@ export interface UpdateWorkplaceDto {
   description?: string;
   image?: string;
   banner?: string;
+  instagramUrl?: string | null;
+  tiktokUrl?: string | null;
 }
 
 export class WorkplaceService {
@@ -216,6 +221,26 @@ export class WorkplaceService {
       }
     }
 
+    // Validar y normalizar redes sociales
+    let instagramUrl: string | null = null;
+    let tiktokUrl: string | null = null;
+
+    if (data.instagramUrl !== undefined && data.instagramUrl !== null) {
+      const instagramValidation = validateAndNormalizeInstagram(data.instagramUrl);
+      if (!instagramValidation.isValid) {
+        throw new Error(instagramValidation.error || 'Invalid Instagram URL');
+      }
+      instagramUrl = instagramValidation.normalizedUrl;
+    }
+
+    if (data.tiktokUrl !== undefined && data.tiktokUrl !== null) {
+      const tiktokValidation = validateAndNormalizeTikTok(data.tiktokUrl);
+      if (!tiktokValidation.isValid) {
+        throw new Error(tiktokValidation.error || 'Invalid TikTok URL');
+      }
+      tiktokUrl = tiktokValidation.normalizedUrl;
+    }
+
     const workplace = await prisma.workplace.create({
       data: {
         name: data.name,
@@ -226,6 +251,8 @@ export class WorkplaceService {
         description: data.description,
         image: data.image,
         banner: data.banner,
+        instagramUrl,
+        tiktokUrl,
       },
     });
 
@@ -271,18 +298,45 @@ export class WorkplaceService {
       }
     }
 
+    // Validar y normalizar redes sociales
+    const updateData: any = {
+      name: data.name,
+      address: data.address,
+      city: data.city,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      description: data.description,
+      image: data.image,
+      banner: data.banner,
+    };
+
+    if (data.instagramUrl !== undefined) {
+      if (data.instagramUrl === null || data.instagramUrl.trim() === '') {
+        updateData.instagramUrl = null;
+      } else {
+        const instagramValidation = validateAndNormalizeInstagram(data.instagramUrl);
+        if (!instagramValidation.isValid) {
+          throw new Error(instagramValidation.error || 'Invalid Instagram URL');
+        }
+        updateData.instagramUrl = instagramValidation.normalizedUrl;
+      }
+    }
+
+    if (data.tiktokUrl !== undefined) {
+      if (data.tiktokUrl === null || data.tiktokUrl.trim() === '') {
+        updateData.tiktokUrl = null;
+      } else {
+        const tiktokValidation = validateAndNormalizeTikTok(data.tiktokUrl);
+        if (!tiktokValidation.isValid) {
+          throw new Error(tiktokValidation.error || 'Invalid TikTok URL');
+        }
+        updateData.tiktokUrl = tiktokValidation.normalizedUrl;
+      }
+    }
+
     const workplace = await prisma.workplace.update({
       where: { id },
-      data: {
-        name: data.name,
-        address: data.address,
-        city: data.city,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        description: data.description,
-        image: data.image,
-        banner: data.banner,
-      },
+      data: updateData,
     });
 
     return workplace;

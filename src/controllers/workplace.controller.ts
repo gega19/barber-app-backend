@@ -62,7 +62,18 @@ class WorkplaceController {
 
   async createWorkplace(req: Request, res: Response): Promise<void> {
     try {
-      const { name, address, city, latitude, longitude, description, image, banner } = req.body;
+      const { 
+        name, 
+        address, 
+        city, 
+        latitude, 
+        longitude, 
+        description, 
+        image, 
+        banner,
+        instagramUrl,
+        tiktokUrl
+      } = req.body;
 
       if (!name) {
         res.status(400).json({
@@ -85,6 +96,8 @@ class WorkplaceController {
         description,
         image,
         banner,
+        instagramUrl,
+        tiktokUrl,
       });
 
       res.status(201).json({
@@ -98,6 +111,8 @@ class WorkplaceController {
         res.status(409).json({ success: false, message });
       } else if (message.includes('latitude') || message.includes('longitude') || message.includes('Both')) {
         res.status(400).json({ success: false, message });
+      } else if (message.includes('Invalid Instagram') || message.includes('Invalid TikTok')) {
+        res.status(400).json({ success: false, message });
       } else {
         res.status(500).json({ success: false, message });
       }
@@ -107,7 +122,18 @@ class WorkplaceController {
   async updateWorkplace(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { name, address, city, latitude, longitude, description, image, banner } = req.body;
+      const { 
+        name, 
+        address, 
+        city, 
+        latitude, 
+        longitude, 
+        description, 
+        image, 
+        banner,
+        instagramUrl,
+        tiktokUrl
+      } = req.body;
 
       // Parse coordinates if provided
       const parsedLatitude = latitude !== undefined ? parseFloat(latitude) : undefined;
@@ -122,6 +148,8 @@ class WorkplaceController {
         description,
         image,
         banner,
+        instagramUrl,
+        tiktokUrl,
       });
 
       res.status(200).json({
@@ -136,6 +164,8 @@ class WorkplaceController {
       } else if (message.includes('already exists')) {
         res.status(409).json({ success: false, message });
       } else if (message.includes('latitude') || message.includes('longitude') || message.includes('Both')) {
+        res.status(400).json({ success: false, message });
+      } else if (message.includes('Invalid Instagram') || message.includes('Invalid TikTok')) {
         res.status(400).json({ success: false, message });
       } else {
         res.status(500).json({ success: false, message });
