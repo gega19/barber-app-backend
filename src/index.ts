@@ -84,7 +84,7 @@ const startServer = async () => {
     // Initialize Firebase Admin SDK
     initializeFirebaseAdmin();
     
-    // Test database connection
+    // Test database connection and apply pending migrations
     try {
       await prisma.$connect();
       console.log('✅ Database connected successfully');
@@ -92,6 +92,22 @@ const startServer = async () => {
       // Verify connection with a simple query
       await prisma.$queryRaw`SELECT 1`;
       console.log('✅ Database connection verified');
+      
+      // Try to apply any pending migrations
+      try {
+        const { execSync } = require('child_process');
+        console.log('🔄 Checking for pending migrations...');
+        execSync('npx prisma migrate deploy', { 
+          stdio: 'inherit',
+          cwd: process.cwd(),
+          env: process.env 
+        });
+        console.log('✅ Migrations check completed');
+      } catch (migrateError) {
+        // If migrations fail, log but don't stop the server
+        console.warn('⚠️  Could not apply migrations automatically:', (migrateError as Error).message);
+        console.warn('⚠️  You may need to run migrations manually: npx prisma migrate deploy');
+      }
     } catch (dbError) {
       const error = dbError as Error;
       const isInternalUrlError = error.message.includes('postgres.railway.internal');

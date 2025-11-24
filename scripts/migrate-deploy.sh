@@ -35,16 +35,27 @@ wait_for_db() {
 }
 
 # Esperar a que la base de datos esté lista
+DB_READY=false
 if ! wait_for_db; then
-  echo "⚠️  Could not connect to database. This might be a temporary issue."
-  echo "⚠️  The server will start anyway, but migrations will need to be applied manually."
-  echo "⚠️  You can run migrations later with: npx prisma migrate deploy"
-  exit 0  # Salir con éxito para que el servidor pueda iniciar
+  echo "⚠️  Could not connect to database during initial wait."
+  echo "⚠️  Will attempt to apply migrations anyway (database might be ready now)..."
+  DB_READY=false
+else
+  DB_READY=true
 fi
 
 # Intentar aplicar migraciones y capturar output
+echo "🔄 Attempting to apply migrations..."
 MIGRATE_OUTPUT=$(npx prisma migrate deploy 2>&1)
 MIGRATE_EXIT_CODE=$?
+
+# Si falla por conexión y no esperamos antes, intentar una vez más después de un breve delay
+if [ $MIGRATE_EXIT_CODE -ne 0 ] && [ "$DB_READY" = false ]; then
+  echo "⏳ Migration failed, waiting 5 seconds and retrying..."
+  sleep 5
+  MIGRATE_OUTPUT=$(npx prisma migrate deploy 2>&1)
+  MIGRATE_EXIT_CODE=$?
+fi
 
 # Si tiene éxito, ejecutar seed y salir
 if [ $MIGRATE_EXIT_CODE -eq 0 ]; then
