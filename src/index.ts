@@ -88,9 +88,36 @@ const startServer = async () => {
     try {
       await prisma.$connect();
       console.log('✅ Database connected successfully');
+      
+      // Verify connection with a simple query
+      await prisma.$queryRaw`SELECT 1`;
+      console.log('✅ Database connection verified');
     } catch (dbError) {
-      console.warn('⚠️  Database connection failed:', (dbError as Error).message);
-      console.warn('⚠️  Server starting without database connection...');
+      const error = dbError as Error;
+      const isInternalUrlError = error.message.includes('postgres.railway.internal');
+      
+      // If internal URL fails and we have public URL, suggest using it
+      if (isInternalUrlError && process.env.DATABASE_PUBLIC_URL) {
+        console.error('❌ Internal database URL failed:', error.message);
+        console.error('💡 Solution: Update DATABASE_URL in Railway to use DATABASE_PUBLIC_URL');
+        console.error('   1. Go to your backend service in Railway');
+        console.error('   2. Go to Variables tab');
+        console.error('   3. Update DATABASE_URL to use the value from DATABASE_PUBLIC_URL');
+        console.error('   4. Or temporarily set DATABASE_URL = DATABASE_PUBLIC_URL');
+      } else {
+        console.error('❌ Database connection failed:', error.message);
+      }
+      
+      console.error('❌ DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'NOT SET');
+      console.error('❌ DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? 'Set (hidden)' : 'NOT SET');
+      console.error('❌ Please check:');
+      console.error('   1. PostgreSQL service is running in Railway');
+      console.error('   2. DATABASE_URL or DATABASE_PUBLIC_URL variable is configured');
+      console.error('   3. Both services are in the same Railway project');
+      console.error('   4. Database service is not paused');
+      console.error('');
+      console.error('⚠️  Server starting without database connection...');
+      console.error('⚠️  API endpoints will fail until database is connected');
     }
     
     // Create HTTP server

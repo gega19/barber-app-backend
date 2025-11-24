@@ -28,12 +28,27 @@ if (!loaded) {
   dotenv.config();
 }
 
+// Railway provides both DATABASE_URL (internal) and DATABASE_PUBLIC_URL (public)
+// Use public URL as fallback if internal URL is not available or fails
+const getDatabaseUrl = () => {
+  // Prefer internal URL (faster, more secure) but fallback to public URL
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+  // Fallback to public URL if internal URL is not set
+  if (process.env.DATABASE_PUBLIC_URL) {
+    console.log('⚠️  Using DATABASE_PUBLIC_URL as fallback (DATABASE_URL not set)');
+    return process.env.DATABASE_PUBLIC_URL;
+  }
+  return '';
+};
+
 export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
   
   database: {
-    url: process.env.DATABASE_URL || '',
+    url: getDatabaseUrl(),
   },
   
   jwt: {
