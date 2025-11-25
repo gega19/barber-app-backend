@@ -95,6 +95,29 @@ export class WorkplaceService {
     return workplaces;
   }
 
+  async getBestWorkplaces(limit: number = 5) {
+    const workplaces = await prisma.workplace.findMany({
+      take: limit,
+      orderBy: {
+        rating: 'desc',
+      },
+      include: {
+        _count: {
+          select: {
+            barbers: true,
+            reviewList: true,
+          },
+        },
+      },
+    });
+    
+    return workplaces.map(workplace => ({
+      ...workplace,
+      barbersCount: workplace._count.barbers,
+      reviewsCount: workplace._count.reviewList,
+    }));
+  }
+
   /**
    * Get workplaces near a specific location
    * @param latitude - Latitude of the center point

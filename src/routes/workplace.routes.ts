@@ -8,6 +8,7 @@ const router = Router();
 // Public routes
 // IMPORTANTE: Las rutas más específicas deben ir ANTES de las rutas con parámetros
 router.get('/public/nearby', workplaceController.getNearbyWorkplaces.bind(workplaceController));
+router.get('/public/best', workplaceController.getBestWorkplaces.bind(workplaceController));
 router.get('/public', workplaceController.getWorkplaces.bind(workplaceController));
 router.get('/public/:id', workplaceController.getWorkplaceById.bind(workplaceController));
 
