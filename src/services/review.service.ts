@@ -190,6 +190,49 @@ export class ReviewService {
     };
   }
 
+  /**
+   * Obtiene el rating promedio global de todos los barberos
+   * Esto se usa para el cálculo de Bayesian Average
+   */
+  private async getGlobalAverageBarberRating(): Promise<number> {
+    const allReviews = await prisma.review.findMany({
+      where: { barberId: { not: null } },
+      select: { rating: true },
+    });
+
+    if (allReviews.length === 0) {
+      return 3.0; // Rating por defecto si no hay reviews
+    }
+
+    const totalRating = allReviews.reduce((sum, r) => sum + r.rating, 0);
+    return totalRating / allReviews.length;
+  }
+
+  /**
+   * Obtiene el rating promedio global de todas las barberías
+   * Esto se usa para el cálculo de Bayesian Average
+   */
+  private async getGlobalAverageWorkplaceRating(): Promise<number> {
+    const allReviews = await prisma.review.findMany({
+      where: { workplaceId: { not: null } },
+      select: { rating: true },
+    });
+
+    if (allReviews.length === 0) {
+      return 3.0; // Rating por defecto si no hay reviews
+    }
+
+    const totalRating = allReviews.reduce((sum, r) => sum + r.rating, 0);
+    return totalRating / allReviews.length;
+  }
+
+  /**
+   * Actualiza el rating de un barbero usando Bayesian Average
+   * Fórmula: (totalRating + C * m) / (reviews.length + C)
+   * donde C = peso mínimo, m = rating promedio global
+   * 
+   * Esto evita que barberos con pocas reviews tengan ratings artificialmente altos
+   */
   private async updateBarberRating(barberId: string) {
     const reviews = await prisma.review.findMany({
       where: { barberId },
@@ -198,18 +241,35 @@ export class ReviewService {
 
     if (reviews.length > 0) {
       const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
-      const avgRating = totalRating / reviews.length;
+      
+      // Obtener rating promedio global de todos los barberos
+      const globalAvg = await this.getGlobalAverageBarberRating();
+      
+      // Parámetros para Bayesian Average
+      const C = 5; // Peso mínimo (número mágico - ajustable según necesidades)
+      const m = globalAvg; // Rating promedio global
+      
+      // Calcular Bayesian Average
+      // Fórmula: (totalRating + C * m) / (reviews.length + C)
+      const bayesianRating = (totalRating + C * m) / (reviews.length + C);
+      
+      // Redondear a 1 decimal para consistencia
+      const roundedRating = Math.round(bayesianRating * 10) / 10;
 
       await prisma.barber.update({
         where: { id: barberId },
         data: {
-          rating: avgRating,
+          rating: roundedRating,
           reviews: reviews.length,
         },
       });
     }
   }
 
+  /**
+   * Actualiza el rating de una barbería usando Bayesian Average
+   * Misma lógica que updateBarberRating pero para workplaces
+   */
   private async updateWorkplaceRating(workplaceId: string) {
     const reviews = await prisma.review.findMany({
       where: { workplaceId },
@@ -218,12 +278,25 @@ export class ReviewService {
 
     if (reviews.length > 0) {
       const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
-      const avgRating = totalRating / reviews.length;
+      
+      // Obtener rating promedio global de todas las barberías
+      const globalAvg = await this.getGlobalAverageWorkplaceRating();
+      
+      // Parámetros para Bayesian Average
+      const C = 5; // Peso mínimo (número mágico - ajustable según necesidades)
+      const m = globalAvg; // Rating promedio global
+      
+      // Calcular Bayesian Average
+      // Fórmula: (totalRating + C * m) / (reviews.length + C)
+      const bayesianRating = (totalRating + C * m) / (reviews.length + C);
+      
+      // Redondear a 1 decimal para consistencia
+      const roundedRating = Math.round(bayesianRating * 10) / 10;
 
       await prisma.workplace.update({
         where: { id: workplaceId },
         data: {
-          rating: avgRating,
+          rating: roundedRating,
           reviews: reviews.length,
         },
       });
