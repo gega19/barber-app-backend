@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
-export type UserRole = 'ADMIN' | 'CLIENT' | 'USER';
+export type UserRole = 'ADMIN' | 'CLIENT' | 'USER' | 'BARBERSHOP';
 
 /**
  * Middleware para verificar que el usuario tenga uno de los roles permitidos

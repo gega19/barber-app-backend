@@ -11,6 +11,7 @@ enum UserRole {
   ADMIN
   CLIENT
   USER
+  BARBERSHOP
 }
 
 model User {
@@ -31,6 +32,8 @@ model User {
   refreshTokens RefreshToken[]
   reviewList    Review[]
   fcmTokens     FcmToken[]
+  workplaceId   String?        @unique
+  managedWorkplace Workplace?  @relation("WorkplaceManager", fields: [workplaceId], references: [id])
 
   @@index([email])
   @@map("users")
@@ -77,6 +80,7 @@ model Workplace {
   barbers     Barber[]
   reviewList  Review[]
   media       WorkplaceMedia[]
+  manager     User?           @relation("WorkplaceManager")
 
   @@map("workplaces")
 }

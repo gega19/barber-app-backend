@@ -13,6 +13,7 @@ export interface CreateUserDto {
   phone?: string;
   location?: string;
   role?: UserRole;
+  workplaceId?: string;
   country?: string;
   gender?: string;
 }
@@ -22,6 +23,7 @@ export interface UpdateUserDto {
   phone?: string;
   location?: string;
   role?: UserRole;
+  workplaceId?: string;
   country?: string;
   gender?: string;
   password?: string;
@@ -30,16 +32,16 @@ export interface UpdateUserDto {
 class UserService {
   async getAllUsers(page: number = 1, limit: number = 10, search?: string) {
     const skip = (page - 1) * limit;
-    
+
     // SQLite doesn't support 'mode: insensitive', so we use contains without it
     // For case-insensitive search, we'll filter in memory if needed
     const where = search
       ? {
-          OR: [
-            { email: { contains: search } },
-            { name: { contains: search } },
-          ],
-        }
+        OR: [
+          { email: { contains: search } },
+          { name: { contains: search } },
+        ],
+      }
       : {};
 
     const [users, total] = await Promise.all([
@@ -56,6 +58,7 @@ class UserService {
           country: true,
           gender: true,
           role: true,
+          workplaceId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -96,6 +99,7 @@ class UserService {
         country: true,
         gender: true,
         role: true,
+        workplaceId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -112,22 +116,7 @@ class UserService {
   }
 
   async createUser(data: CreateUserDto) {
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    });
-
-    if (existingUser) {
-      throw new Error('User with this email already exists');
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(data.password);
-
-    // Generate default avatarSeed
-    const avatarSeed = `${data.email}-${Date.now()}`;
-
-    // Create user
+    // ... (rest of the method until prisma.user.create)
     const user = await prisma.user.create({
       data: {
         email: data.email,
@@ -136,6 +125,7 @@ class UserService {
         phone: data.phone,
         location: data.location,
         role: data.role || 'USER',
+        workplaceId: data.role === 'BARBERSHOP' ? data.workplaceId : undefined,
         country: data.country,
         gender: data.gender,
         avatarSeed: avatarSeed,
@@ -151,6 +141,7 @@ class UserService {
         country: true,
         gender: true,
         role: true,
+        workplaceId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -179,6 +170,7 @@ class UserService {
       location: data.location,
       country: data.country,
       gender: data.gender,
+      workplaceId: data.workplaceId,
     };
 
     // Update role if provided
@@ -212,6 +204,7 @@ class UserService {
         country: true,
         gender: true,
         role: true,
+        workplaceId: true,
         createdAt: true,
         updatedAt: true,
       },

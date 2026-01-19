@@ -27,6 +27,7 @@ import fcmTokenRoutes from './routes/fcm-token.routes';
 import campaignRoutes from './routes/campaign.routes';
 import appVersionRoutes from './routes/app-version.routes';
 import legalDocumentRoutes from './routes/legal-document.routes';
+import myWorkplaceRoutes from './routes/my-workplace.routes';
 import path from 'path';
 import express from 'express';
 import http from 'http';
@@ -69,6 +70,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/fcm-tokens', fcmTokenRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/legal', legalDocumentRoutes);
+app.use('/api/my-workplace', myWorkplaceRoutes);
 
 // Rutas de app version (públicas y admin)
 app.use('/api/app', appVersionRoutes);
@@ -83,24 +85,24 @@ const startServer = async () => {
   try {
     // Initialize Firebase Admin SDK
     initializeFirebaseAdmin();
-    
+
     // Test database connection and apply pending migrations
     try {
       await prisma.$connect();
       console.log('✅ Database connected successfully');
-      
+
       // Verify connection with a simple query
       await prisma.$queryRaw`SELECT 1`;
       console.log('✅ Database connection verified');
-      
+
       // Try to apply any pending migrations
       try {
         const { execSync } = require('child_process');
         console.log('🔄 Checking for pending migrations...');
-        execSync('npx prisma migrate deploy', { 
+        execSync('npx prisma migrate deploy', {
           stdio: 'inherit',
           cwd: process.cwd(),
-          env: process.env 
+          env: process.env
         });
         console.log('✅ Migrations check completed');
       } catch (migrateError) {
@@ -111,7 +113,7 @@ const startServer = async () => {
     } catch (dbError) {
       const error = dbError as Error;
       const isInternalUrlError = error.message.includes('postgres.railway.internal');
-      
+
       // If internal URL fails and we have public URL, suggest using it
       if (isInternalUrlError && process.env.DATABASE_PUBLIC_URL) {
         console.error('❌ Internal database URL failed:', error.message);
@@ -123,7 +125,7 @@ const startServer = async () => {
       } else {
         console.error('❌ Database connection failed:', error.message);
       }
-      
+
       console.error('❌ DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden)' : 'NOT SET');
       console.error('❌ DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? 'Set (hidden)' : 'NOT SET');
       console.error('❌ Please check:');
@@ -135,13 +137,13 @@ const startServer = async () => {
       console.error('⚠️  Server starting without database connection...');
       console.error('⚠️  API endpoints will fail until database is connected');
     }
-    
+
     // Create HTTP server
     const httpServer = http.createServer(app);
-    
+
     // Initialize Socket.IO server
     createSocketServer(httpServer);
-    
+
     // Start listening
     // In production (Render), listen on 0.0.0.0 to accept external connections
     const host = config.nodeEnv === 'production' ? '0.0.0.0' : 'localhost';

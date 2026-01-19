@@ -13,6 +13,7 @@ type User = {
   country?: string | null;
   gender?: string | null;
   role?: string | null;
+  workplaceId?: string | null;
   password: string;
   createdAt: Date;
   updatedAt: Date;
@@ -32,7 +33,7 @@ export interface LoginDto {
 }
 
 export interface AuthResponse {
-  user: Omit<User, 'password'> & { isBarber: boolean; barberId?: string };
+  user: Omit<User, 'password'> & { isBarber: boolean; barberId?: string; workplaceId?: string | null };
   accessToken: string;
   refreshToken: string;
 }
@@ -75,6 +76,7 @@ export class AuthService {
         country: true,
         gender: true,
         role: true,
+        workplaceId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -85,12 +87,14 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       role: user.role.toString(),
+      workplaceId: user.workplaceId || undefined,
     });
 
     const refreshToken = generateRefreshToken({
       userId: user.id,
       email: user.email,
       role: user.role.toString(),
+      workplaceId: user.workplaceId || undefined,
     });
 
     // Save refresh token
@@ -111,7 +115,7 @@ export class AuthService {
     return {
       user: {
         ...user,
-        role: user.role.toString() as 'ADMIN' | 'CLIENT' | 'USER',
+        role: user.role.toString() as 'ADMIN' | 'CLIENT' | 'USER' | 'BARBERSHOP',
         isBarber: !!barber,
         barberId: barber?.id,
       },
@@ -120,59 +124,62 @@ export class AuthService {
     };
   }
 
-      async login(data: LoginDto): Promise<AuthResponse> {
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { email: data.email },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          phone: true,
-          avatar: true,
-          avatarSeed: true,
-          location: true,
-          country: true,
-          gender: true,
-          role: true,
-          password: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+  async login(data: LoginDto): Promise<AuthResponse> {
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        avatar: true,
+        avatarSeed: true,
+        location: true,
+        country: true,
+        gender: true,
+        role: true,
+        workplaceId: true,
+        password: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('Invalid email or password');
+    }
+
+    // Verify password
+    const isPasswordValid = await comparePassword(data.password, user.password);
+
+    if (!isPasswordValid) {
+      throw new Error('Invalid email or password');
+    }
+
+    // Generate avatarSeed if user doesn't have one
+    if (!user.avatarSeed) {
+      const avatarSeed = `${user.email}-${Date.now()}`;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { avatarSeed },
       });
+      user.avatarSeed = avatarSeed;
+    }
 
-      if (!user) {
-        throw new Error('Invalid email or password');
-      }
-
-            // Verify password
-      const isPasswordValid = await comparePassword(data.password, user.password);
-
-      if (!isPasswordValid) {
-        throw new Error('Invalid email or password');
-      }
-
-      // Generate avatarSeed if user doesn't have one
-      if (!user.avatarSeed) {
-        const avatarSeed = `${user.email}-${Date.now()}`;
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { avatarSeed },
-        });
-        user.avatarSeed = avatarSeed;
-      }
-
-      // Generate tokens (convert enum to string)
+    // Generate tokens (convert enum to string)
     const accessToken = generateAccessToken({
       userId: user.id,
       email: user.email,
       role: user.role.toString(),
+      workplaceId: user.workplaceId || undefined,
     });
 
     const refreshToken = generateRefreshToken({
       userId: user.id,
       email: user.email,
       role: user.role.toString(),
+      workplaceId: user.workplaceId || undefined,
     });
 
     // Save refresh token
@@ -201,7 +208,8 @@ export class AuthService {
         location: user.location,
         country: user.country,
         gender: user.gender,
-        role: user.role.toString() as 'ADMIN' | 'CLIENT' | 'USER',
+        role: user.role.toString() as 'ADMIN' | 'CLIENT' | 'USER' | 'BARBERSHOP',
+        workplaceId: user.workplaceId,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         isBarber: !!barber,
@@ -238,14 +246,48 @@ export class AuthService {
       userId: token.user.id,
       email: token.user.email,
       role: token.user.role.toString(),
+      workplaceId: token.user.workplaceId || undefined,
     });
 
     return accessToken;
   }
 
-      async getCurrentUser(userId: string): Promise<(Omit<User, 'password'> & { isBarber: boolean; barberId?: string }) | null> {
-      const user = await prisma.user.findUnique({
+  async getCurrentUser(userId: string): Promise<(Omit<User, 'password'> & { isBarber: boolean; barberId?: string; workplaceId?: string | null }) | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        avatar: true,
+        avatarSeed: true,
+        location: true,
+        country: true,
+        gender: true,
+        role: true,
+        workplaceId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    // Verificar si el usuario tiene perfil de barbero
+    const barber = await prisma.barber.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    });
+
+    // Generate avatarSeed if user doesn't have one
+    if (!user.avatarSeed) {
+      const avatarSeed = `${user.email}-${Date.now()}`;
+      const updatedUser = await prisma.user.update({
         where: { id: userId },
+        data: { avatarSeed },
         select: {
           id: true,
           email: true,
@@ -261,51 +303,19 @@ export class AuthService {
           updatedAt: true,
         },
       });
-
-      if (!user) {
-        return null;
-      }
-
-      // Verificar si el usuario tiene perfil de barbero
-      const barber = await prisma.barber.findUnique({
-        where: { email: user.email },
-        select: { id: true },
-      });
-
-      // Generate avatarSeed if user doesn't have one
-      if (!user.avatarSeed) {
-        const avatarSeed = `${user.email}-${Date.now()}`;
-        const updatedUser = await prisma.user.update({
-          where: { id: userId },
-          data: { avatarSeed },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            phone: true,
-            avatar: true,
-            avatarSeed: true,
-            location: true,
-            country: true,
-            gender: true,
-            role: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        });
-        return {
-          ...updatedUser,
-          isBarber: !!barber,
-          barberId: barber?.id,
-        };
-      }
-
       return {
-        ...user,
+        ...updatedUser,
         isBarber: !!barber,
         barberId: barber?.id,
       };
     }
+
+    return {
+      ...user,
+      isBarber: !!barber,
+      barberId: barber?.id,
+    };
+  }
 
   async getUserStats(userId: string) {
     // Get user to check role
@@ -348,7 +358,7 @@ export class AuthService {
       const totalAppointments = appointments.length;
       const uniqueClients = new Set(appointments.map((a: any) => a.userId)).size;
       const completedAppointments = appointments.filter((a: any) => a.status === 'COMPLETED');
-      
+
       // Calculate total earnings from completed appointments
       const totalEarnings = completedAppointments.reduce((sum: number, appointment: any) => {
         return sum + (appointment.barber.price || 0);
@@ -380,7 +390,7 @@ export class AuthService {
     const totalAppointments = appointments.length;
     const completedAppointments = appointments.filter((a: any) => a.status === 'COMPLETED');
     const uniqueBarbers = new Set(appointments.map((a: any) => a.barberId)).size;
-    
+
     // Calculate total spent from completed appointments
     const totalSpent = completedAppointments.reduce((sum: number, appointment: any) => {
       return sum + (appointment.barber.price || 0);
@@ -433,59 +443,59 @@ export class AuthService {
     return updatedUser;
   }
 
-    async becomeBarber(userId: string, data: {
-      specialtyId?: string;
-      specialty: string;
-      experienceYears: number;
-      location: string;
-      latitude?: number;
-      longitude?: number;
-      image?: string;
-      workplaceId?: string;
-      serviceType?: string;
-    }): Promise<{ user: Omit<User, 'password'>; barberId: string }> {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
+  async becomeBarber(userId: string, data: {
+    specialtyId?: string;
+    specialty: string;
+    experienceYears: number;
+    location: string;
+    latitude?: number;
+    longitude?: number;
+    image?: string;
+    workplaceId?: string;
+    serviceType?: string;
+  }): Promise<{ user: Omit<User, 'password'>; barberId: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Check if user already has a barber profile
+    const existingBarber = await prisma.barber.findUnique({
+      where: { email: user.email },
+    });
+
+    if (existingBarber) {
+      throw new Error('User is already a barber');
+    }
+
+    let barberId = '';
+
+    await prisma.$transaction(async (tx: any) => {
+      const barber = await tx.barber.create({
+        data: {
+          name: user.name,
+          email: user.email,
+          specialty: data.specialty,
+          specialtyId: data.specialtyId,
+          experienceYears: data.experienceYears,
+          location: data.location,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          image: data.image || user.avatar || '',
+          workplaceId: data.workplaceId,
+          serviceType: data.serviceType,
+        },
       });
 
-      if (!user) {
-        throw new Error('User not found');
-      }
+      barberId = barber.id;
+    });
 
-      // Check if user already has a barber profile
-      const existingBarber = await prisma.barber.findUnique({
-        where: { email: user.email },
-      });
-
-      if (existingBarber) {
-        throw new Error('User is already a barber');
-      }
-
-      let barberId = '';
-      
-      await prisma.$transaction(async (tx: any) => {
-        const barber = await tx.barber.create({
-          data: {
-            name: user.name,
-            email: user.email,
-            specialty: data.specialty,
-            specialtyId: data.specialtyId,
-            experienceYears: data.experienceYears,
-            location: data.location,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            image: data.image || user.avatar || '',
-            workplaceId: data.workplaceId,
-            serviceType: data.serviceType,
-          },
-        });
-        
-        barberId = barber.id;
-      });
-
-      // Crear disponibilidad por defecto
-      const barberAvailabilityService = (await import('./barber-availability.service')).default;
-      await barberAvailabilityService.createDefaultAvailability(barberId);
+    // Crear disponibilidad por defecto
+    const barberAvailabilityService = (await import('./barber-availability.service')).default;
+    await barberAvailabilityService.createDefaultAvailability(barberId);
 
     const updatedUser = await prisma.user.findUnique({
       where: { id: userId },
