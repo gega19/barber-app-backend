@@ -116,7 +116,17 @@ class UserService {
   }
 
   async createUser(data: CreateUserDto) {
-    // ... (rest of the method until prisma.user.create)
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+
+    const hashedPassword = await hashPassword(data.password);
+    const avatarSeed = `${data.email}-${Date.now()}`;
+
     const user = await prisma.user.create({
       data: {
         email: data.email,
