@@ -32,8 +32,8 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Solo permitir archivos .apk
-    if (file.mimetype === 'application/vnd.android.package-archive' || 
-        path.extname(file.originalname).toLowerCase() === '.apk') {
+    if (file.mimetype === 'application/vnd.android.package-archive' ||
+      path.extname(file.originalname).toLowerCase() === '.apk') {
       cb(null, true);
     } else {
       cb(new Error('Solo se permiten archivos APK'));
@@ -115,7 +115,7 @@ export class AppVersionController {
     try {
       const { versionId } = req.params;
       console.log(`📥 Download request for version ID: ${versionId}`);
-      
+
       const version = await appVersionService.getVersionById(versionId);
       console.log(`✅ Version found: ${version.version} (${version.id}), isActive: ${version.isActive}, apkUrl: ${version.apkUrl}`);
 
@@ -228,10 +228,10 @@ export class AppVersionController {
       console.log('📄 File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'No file');
       console.log('📋 Body:', req.body);
 
-      const { 
-        version, 
-        versionCode, 
-        releaseNotes, 
+      const {
+        version,
+        versionCode,
+        releaseNotes,
         isActive,
         minimumVersionCode,
         updateUrl,
@@ -241,18 +241,19 @@ export class AppVersionController {
 
       const effectiveUpdateType = updateType || 'apk';
 
-      if (effectiveUpdateType === 'apk' && !req.file) {
-        res.status(400).json({
-          success: false,
-          message: 'No se proporcionó archivo APK',
-        });
-        return;
-      }
+      // Permite crear versión sin archivo (apkUrl será string vacío o updateUrl)
+      // if (effectiveUpdateType === 'apk' && !req.file) {
+      //   res.status(400).json({
+      //     success: false,
+      //     message: 'No se proporcionó archivo APK',
+      //   });
+      //   return;
+      // }
 
-      console.log('📝 Parsed data:', { 
-        version, 
-        versionCode, 
-        releaseNotes, 
+      console.log('📝 Parsed data:', {
+        version,
+        versionCode,
+        releaseNotes,
         isActive,
         minimumVersionCode,
         updateUrl,
@@ -281,7 +282,7 @@ export class AppVersionController {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
             const ext = path.extname(req.file.originalname);
             const fileName = `barber-app-v${version}-${uniqueSuffix}${ext}`;
-            
+
             const cloudinaryResult = await cloudinaryService.uploadFile(
               req.file.buffer,
               fileName,
@@ -290,7 +291,7 @@ export class AppVersionController {
                 resourceType: 'raw', // Archivos binarios como APK
               }
             );
-            
+
             apkUrl = cloudinaryResult.secure_url;
             console.log(`✅ APK uploaded to Cloudinary: ${apkUrl}`);
           } else {
@@ -303,7 +304,7 @@ export class AppVersionController {
           const ext = path.extname(req.file.originalname);
           const filename = `app-${uniqueSuffix}${ext}`;
           const filePath = path.join(APK_UPLOAD_DIR, filename);
-          
+
           await fs.writeFile(filePath, req.file.buffer);
           apkUrl = `/uploads/apk/${filename}`;
           console.log(`📁 APK saved locally: ${apkUrl}`);
@@ -347,9 +348,9 @@ export class AppVersionController {
   async updateVersion(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { 
-        version, 
-        releaseNotes, 
+      const {
+        version,
+        releaseNotes,
         isActive,
         minimumVersionCode,
         updateUrl,
