@@ -228,14 +228,6 @@ export class AppVersionController {
       console.log('📄 File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'No file');
       console.log('📋 Body:', req.body);
 
-      if (!req.file) {
-        res.status(400).json({
-          success: false,
-          message: 'No se proporcionó archivo APK',
-        });
-        return;
-      }
-
       const { 
         version, 
         versionCode, 
@@ -246,6 +238,16 @@ export class AppVersionController {
         updateType,
         forceUpdate,
       } = req.body;
+
+      const effectiveUpdateType = updateType || 'apk';
+
+      if (effectiveUpdateType === 'apk' && !req.file) {
+        res.status(400).json({
+          success: false,
+          message: 'No se proporcionó archivo APK',
+        });
+        return;
+      }
 
       console.log('📝 Parsed data:', { 
         version, 
@@ -268,42 +270,47 @@ export class AppVersionController {
       }
 
       let apkUrl: string;
-      const apkSize = req.file.size;
+      const apkSize = req.file ? req.file.size : 0;
       const createdBy = req.user?.userId;
 
-      // Intentar subir a Cloudinary primero (persistente)
-      try {
-        if (config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret) {
-          console.log('☁️  Uploading APK to Cloudinary...');
+      if (req.file) {
+        // Intentar subir a Cloudinary primero (persistente)
+        try {
+          if (config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret) {
+            console.log('☁️  Uploading APK to Cloudinary...');
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            const ext = path.extname(req.file.originalname);
+            const fileName = `barber-app-v${version}-${uniqueSuffix}${ext}`;
+            
+            const cloudinaryResult = await cloudinaryService.uploadFile(
+              req.file.buffer,
+              fileName,
+              'barber-app/apk',
+              {
+                resourceType: 'raw', // Archivos binarios como APK
+              }
+            );
+            
+            apkUrl = cloudinaryResult.secure_url;
+            console.log(`✅ APK uploaded to Cloudinary: ${apkUrl}`);
+          } else {
+            throw new Error('Cloudinary not configured, using local storage');
+          }
+        } catch (error: any) {
+          // Fallback: guardar localmente si Cloudinary falla o no está configurado
+          console.warn(`⚠️  Cloudinary upload failed: ${error.message}, using local storage`);
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = path.extname(req.file.originalname);
-          const fileName = `barber-app-v${version}-${uniqueSuffix}${ext}`;
+          const filename = `app-${uniqueSuffix}${ext}`;
+          const filePath = path.join(APK_UPLOAD_DIR, filename);
           
-          const cloudinaryResult = await cloudinaryService.uploadFile(
-            req.file.buffer,
-            fileName,
-            'barber-app/apk',
-            {
-              resourceType: 'raw', // Archivos binarios como APK
-            }
-          );
-          
-          apkUrl = cloudinaryResult.secure_url;
-          console.log(`✅ APK uploaded to Cloudinary: ${apkUrl}`);
-        } else {
-          throw new Error('Cloudinary not configured, using local storage');
+          await fs.writeFile(filePath, req.file.buffer);
+          apkUrl = `/uploads/apk/${filename}`;
+          console.log(`📁 APK saved locally: ${apkUrl}`);
         }
-      } catch (error: any) {
-        // Fallback: guardar localmente si Cloudinary falla o no está configurado
-        console.warn(`⚠️  Cloudinary upload failed: ${error.message}, using local storage`);
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const ext = path.extname(req.file.originalname);
-        const filename = `app-${uniqueSuffix}${ext}`;
-        const filePath = path.join(APK_UPLOAD_DIR, filename);
-        
-        await fs.writeFile(filePath, req.file.buffer);
-        apkUrl = `/uploads/apk/${filename}`;
-        console.log(`📁 APK saved locally: ${apkUrl}`);
+      } else {
+        // Sin APK (store/url): usar updateUrl o un placeholder vacío
+        apkUrl = updateUrl || '';
       }
 
       const newVersion = await appVersionService.createVersion({
@@ -316,7 +323,7 @@ export class AppVersionController {
         isActive: req.body.isActive === 'true' || req.body.isActive === true,
         minimumVersionCode: minimumVersionCode ? parseInt(minimumVersionCode, 10) : undefined,
         updateUrl: updateUrl || undefined,
-        updateType: updateType || undefined,
+        updateType: effectiveUpdateType || undefined,
         forceUpdate: forceUpdate === 'true' || forceUpdate === true,
       });
 
