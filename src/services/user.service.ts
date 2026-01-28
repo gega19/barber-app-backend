@@ -66,18 +66,14 @@ class UserService {
       };
     }
 
-    // "Is Barber" filter (Logic: Look for users with BARBERSHOP role OR existing profile in Barber table)
-    // For simplicity and performance, we'll stick to UserRole.BARBERSHOP for "Barbers" filter in this context
-    // unless deeper integration is requested.
+    // "Is Barber" filter
     if (filters?.isBarber !== undefined) {
       if (filters.isBarber) {
-        // If filtering for barbers, we look for BARBERSHOP role
-        // OR we could check if their email exists in Barber table (requires distinct query or join)
-        // Let's assume UserRole.BARBERSHOP is the source of truth for "System Barbers"
-        where.role = 'BARBERSHOP';
+        // Native filter: Users with BARBER role (Employees) or BARBERSHOP (Managers)
+        // Adjust based on strictness required. Usually "Barber" filter implies staff.
+        where.role = { in: ['BARBER', 'BARBERSHOP'] };
       } else {
-        // If filtering for "Normal" users (not barbers)
-        where.role = { not: 'BARBERSHOP' };
+        where.role = { notIn: ['BARBER', 'BARBERSHOP'] };
       }
     }
 
@@ -112,6 +108,7 @@ class UserService {
       users: users.map(user => ({
         ...user,
         role: user.role.toString(),
+        isBarber: user.role === 'BARBER' || user.role === 'BARBERSHOP',
       })),
       pagination: {
         page,
