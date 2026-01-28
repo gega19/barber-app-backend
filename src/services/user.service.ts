@@ -30,19 +30,56 @@ export interface UpdateUserDto {
 }
 
 class UserService {
-  async getAllUsers(page: number = 1, limit: number = 10, search?: string) {
+  async getAllUsers(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    filters?: {
+      role?: string;
+      fromDate?: Date;
+      toDate?: Date;
+      isBarber?: boolean;
+    }
+  ) {
     const skip = (page - 1) * limit;
 
-    // SQLite doesn't support 'mode: insensitive', so we use contains without it
-    // For case-insensitive search, we'll filter in memory if needed
-    const where = search
-      ? {
-        OR: [
-          { email: { contains: search } },
-          { name: { contains: search } },
-        ],
+    const where: any = {};
+
+    // Search filter
+    if (search) {
+      where.OR = [
+        { email: { contains: search } }, // SQLite/Postgres case differences handled by DB usually, or need mode: insensitive
+        { name: { contains: search } },
+      ];
+    }
+
+    // Role filter
+    if (filters?.role && filters.role !== 'ALL') {
+      where.role = filters.role;
+    }
+
+    // Date filter
+    if (filters?.fromDate) {
+      where.createdAt = {
+        gte: filters.fromDate,
+        ...(filters.toDate ? { lte: filters.toDate } : {}),
+      };
+    }
+
+    // "Is Barber" filter (Logic: Look for users with BARBERSHOP role OR existing profile in Barber table)
+    // For simplicity and performance, we'll stick to UserRole.BARBERSHOP for "Barbers" filter in this context
+    // unless deeper integration is requested.
+    if (filters?.isBarber !== undefined) {
+      if (filters.isBarber) {
+        // If filtering for barbers, we look for BARBERSHOP role
+        // OR we could check if their email exists in Barber table (requires distinct query or join)
+        // Let's assume UserRole.BARBERSHOP is the source of truth for "System Barbers"
+        where.role = 'BARBERSHOP';
+      } else {
+        // If filtering for "Normal" users (not barbers)
+        where.role = { not: 'BARBERSHOP' };
       }
-      : {};
+    }
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({

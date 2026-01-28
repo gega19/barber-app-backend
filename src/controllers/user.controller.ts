@@ -8,7 +8,14 @@ class UserController {
       const limit = parseInt(req.query.limit as string) || 10;
       const search = req.query.search as string | undefined;
 
-      const result = await userService.getAllUsers(page, limit, search);
+      const filters = {
+        role: req.query.role as string,
+        isBarber: req.query.isBarber === 'true' ? true : req.query.isBarber === 'false' ? false : undefined,
+        fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
+        toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
+      };
+
+      const result = await userService.getAllUsers(page, limit, search, filters);
 
       res.status(200).json({
         success: true,
