@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { hashPassword, comparePassword } from '../utils/hash';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
+import barberService from './barber.service';
 
 type User = {
   id: string;
@@ -496,6 +497,7 @@ export class AuthService {
     // Crear disponibilidad por defecto
     const barberAvailabilityService = (await import('./barber-availability.service')).default;
     await barberAvailabilityService.createDefaultAvailability(barberId);
+    await barberService.recomputeWallScore(barberId);
 
     const updatedUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -588,6 +590,7 @@ export class AuthService {
         serviceType: data.serviceType,
       },
     });
+    await barberService.recomputeWallScore(barber.id);
   }
 }
 

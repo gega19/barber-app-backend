@@ -17,7 +17,9 @@
     "seed:specialties": "ts-node prisma/seed-specialties.ts",
     "seed:payment-methods": "node seed-payment-methods.js",
     "seed:real": "ts-node prisma/seed-real-data.ts",
+    "seed:dev": "ts-node prisma/seed-dev.ts",
     "seed:admin": "ts-node scripts/update-user-roles.ts",
+    "recompute-wall-scores": "ts-node scripts/recompute-wall-scores.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

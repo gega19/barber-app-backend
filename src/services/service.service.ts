@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import barberService from './barber.service';
 
 export class ServiceService {
   async getBarberServices(barberId: string) {
@@ -33,6 +34,7 @@ export class ServiceService {
         includes: data.includes,
       },
     });
+    await barberService.recomputeWallScore(barberId);
     return service;
   }
 
@@ -46,13 +48,20 @@ export class ServiceService {
       where: { id },
       data,
     });
+    await barberService.recomputeWallScore(service.barberId);
     return service;
   }
 
   async deleteService(id: string) {
+    const service = await prisma.service.findUnique({
+      where: { id },
+      select: { barberId: true },
+    });
+    if (!service) return;
     await prisma.service.delete({
       where: { id },
     });
+    await barberService.recomputeWallScore(service.barberId);
   }
 
   async createMultipleServices(barberId: string, services: Array<{
@@ -74,6 +83,7 @@ export class ServiceService {
         })
       )
     );
+    await barberService.recomputeWallScore(barberId);
     return createdServices;
   }
 }

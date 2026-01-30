@@ -146,7 +146,7 @@ const startServer = async () => {
 
     // Start listening
     // In production (Render), listen on 0.0.0.0 to accept external connections
-    const host = config.nodeEnv === 'production' ? '0.0.0.0' : 'localhost';
+    const host = '0.0.0.0';
     httpServer.listen(config.port, host, () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════════════╗

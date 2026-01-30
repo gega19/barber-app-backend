@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import barberService from './barber.service';
 
 export class ReviewService {
   async getReviewsByBarberId(barberId: string) {
@@ -167,6 +168,7 @@ export class ReviewService {
     // Update rating and review count
     if (data.barberId) {
       await this.updateBarberRating(data.barberId);
+      await barberService.recomputeWallScore(data.barberId);
     } else if (data.workplaceId) {
       await this.updateWorkplaceRating(data.workplaceId);
     }

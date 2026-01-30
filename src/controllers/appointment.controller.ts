@@ -32,7 +32,7 @@ class AppointmentController {
       const barber = await prisma.barber.findUnique({
         where: { email: req.user?.email },
       });
-      
+
       if (barber) {
         // User is a barber, get their appointments
         appointments = await appointmentService.getAppointmentsByBarberId(barber.id);
@@ -61,7 +61,7 @@ class AppointmentController {
         return;
       }
 
-      const { barberId, serviceId, date, time, paymentMethod, paymentProof, notes, currentTime } = req.body;
+      const { barberId, serviceId, date, time, paymentMethod, paymentProof, notes, currentTime, clientName, clientPhone } = req.body;
 
       // Validaciones
       if (!barberId || !date || !time || !paymentMethod) {
@@ -106,9 +106,13 @@ class AppointmentController {
         return;
       }
 
+      // Determinar si es una cita de invitado (manual) o de usuario registrado
+      // Si se proporciona clientName, asumimos que es una cita manual (guest)
+      const appointmentUserId = clientName ? null : userId;
+
       // Crear la cita
       const appointment = await appointmentService.createAppointment({
-        userId,
+        userId: appointmentUserId,
         barberId,
         serviceId: serviceId || undefined,
         date: dateObj,
@@ -117,6 +121,8 @@ class AppointmentController {
         paymentProof: paymentProof as string | undefined,
         notes: notes as string | undefined,
         clientCurrentTime: clientCurrentTime, // Pasar la hora del cliente
+        clientName: clientName as string | undefined,
+        clientPhone: clientPhone as string | undefined,
       });
 
       res.status(201).json({
@@ -126,7 +132,7 @@ class AppointmentController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create appointment';
-      
+
       // Manejar errores específicos
       if (message.includes('no está disponible') || message.includes('ya está reservado')) {
         res.status(409).json({ success: false, message });
@@ -284,7 +290,7 @@ class AppointmentController {
         try {
           const notificationService = (await import('../services/notification.service')).default;
           const { formatDateTimeInSpanish } = await import('../utils/date-formatter');
-          
+
           const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
 
           if (isClient) {
@@ -295,9 +301,10 @@ class AppointmentController {
             });
 
             if (barberUser) {
+              const clientName = appointment.user?.name || appointment.clientName || 'El cliente';
               await notificationService.sendNotificationToUser(barberUser.id, {
                 title: 'Cita Cancelada',
-                body: `${appointment.user.name} ha cancelado la cita para el ${dateTimeStr}`,
+                body: `${clientName} ha cancelado la cita para el ${dateTimeStr}`,
                 data: {
                   type: 'appointment_cancelled',
                   appointmentId: appointment.id,
@@ -306,16 +313,18 @@ class AppointmentController {
               });
             }
           } else if (isBarber) {
-            // Barbero canceló - notificar al cliente
-            await notificationService.sendNotificationToUser(appointment.userId, {
-              title: 'Cita Cancelada',
-              body: `${appointment.barber.name} ha cancelado tu cita para el ${dateTimeStr}`,
-              data: {
-                type: 'appointment_cancelled',
-                appointmentId: appointment.id,
-                userId: appointment.userId,
-              },
-            });
+            // Barbero canceló - notificar al cliente (solo si tiene usuario registrado)
+            if (appointment.userId) {
+              await notificationService.sendNotificationToUser(appointment.userId, {
+                title: 'Cita Cancelada',
+                body: `${appointment.barber.name} ha cancelado tu cita para el ${dateTimeStr}`,
+                data: {
+                  type: 'appointment_cancelled',
+                  appointmentId: appointment.id,
+                  userId: appointment.userId,
+                },
+              });
+            }
           }
         } catch (error) {
           console.error('Error sending cancellation notification:', error);
@@ -460,7 +469,7 @@ class AppointmentController {
       if (dateParam) {
         const [year, month, day] = dateParam.split('-').map(Number);
         targetDate = new Date(year, month - 1, day);
-        
+
         if (isNaN(targetDate.getTime())) {
           res.status(400).json({
             success: false,
@@ -476,7 +485,7 @@ class AppointmentController {
 
       // Obtener citas del barbero para la fecha especificada
       const appointments = await appointmentService.getAppointmentsByBarberId(barberId);
-      
+
       // Filtrar por fecha y ordenar por hora
       const dayStart = new Date(targetDate);
       dayStart.setHours(0, 0, 0, 0);

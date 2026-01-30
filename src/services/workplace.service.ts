@@ -110,7 +110,71 @@ export class WorkplaceService {
         },
       },
     });
-    
+
+    return workplaces.map(workplace => ({
+      ...workplace,
+      barbersCount: workplace._count.barbers,
+      reviewsCount: workplace._count.reviewList,
+    }));
+  }
+
+  /**
+   * Gets best workplaces with pagination and total count (for muro/home).
+   */
+  async getBestWorkplacesWithTotal(limit: number = 10, offset: number = 0) {
+    const [workplaces, total] = await Promise.all([
+      prisma.workplace.findMany({
+        orderBy: { rating: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          _count: {
+            select: {
+              barbers: true,
+              reviewList: true,
+            },
+          },
+        },
+      }),
+      prisma.workplace.count(),
+    ]);
+
+    return {
+      workplaces: workplaces.map(workplace => ({
+        ...workplace,
+        barbersCount: workplace._count.barbers,
+        reviewsCount: workplace._count.reviewList,
+      })),
+      total,
+    };
+  }
+
+  /**
+   * Search workplaces by name, address, or city (public, for muro search).
+   */
+  async searchWorkplaces(query: string) {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const workplaces = await prisma.workplace.findMany({
+      where: {
+        OR: [
+          { name: { contains: trimmed, mode: 'insensitive' } },
+          { address: { contains: trimmed, mode: 'insensitive' } },
+          { city: { contains: trimmed, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { rating: 'desc' },
+      include: {
+        _count: {
+          select: {
+            barbers: true,
+            reviewList: true,
+          },
+        },
+      },
+    });
+
     return workplaces.map(workplace => ({
       ...workplace,
       barbersCount: workplace._count.barbers,

@@ -157,7 +157,7 @@ export class AppointmentService {
    * Previene race conditions usando transacciones
    */
   async createAppointment(data: {
-    userId: string;
+    userId?: string | null;
     barberId: string;
     serviceId?: string;
     date: Date;
@@ -166,7 +166,14 @@ export class AppointmentService {
     paymentProof?: string;
     notes?: string;
     clientCurrentTime?: string | null;
+    clientName?: string;
+    clientPhone?: string;
   }) {
+    // Validar que se tenga un usuario o nombre de cliente
+    if (!data.userId && !data.clientName) {
+      throw new Error('Debe proporcionar un userId o un nombre de cliente');
+    }
+
     // Usar transacción para prevenir race conditions
     return await prisma.$transaction(async (tx: any) => {
       // 1. Verificar que el slot esté disponible
@@ -206,7 +213,7 @@ export class AppointmentService {
       // 3. Crear la cita
       const appointment = await tx.appointment.create({
         data: {
-          userId: data.userId,
+          userId: data.userId || null,
           barberId: data.barberId,
           serviceId: data.serviceId || null,
           date: new Date(data.date.getFullYear(), data.date.getMonth(), data.date.getDate()),
@@ -216,6 +223,8 @@ export class AppointmentService {
           paymentStatus: data.paymentProof ? 'PENDING' : null,
           notes: data.notes || null,
           status: 'PENDING',
+          clientName: data.clientName || null,
+          clientPhone: data.clientPhone || null,
         },
         include: {
           barber: {
@@ -249,6 +258,8 @@ export class AppointmentService {
         barberId: appointment.barberId,
         serviceId: appointment.serviceId,
         userId: appointment.userId,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
         barber: {
           id: barber.id,
           name: barber.name,
@@ -284,7 +295,7 @@ export class AppointmentService {
           emitToBarberRoom(
             appointment.barberId,
             'appointment:created',
-            appointmentData as AppointmentCreatedData
+            appointmentData as unknown as AppointmentCreatedData
           );
         } catch (error) {
           console.error('Error emitting appointment:created event:', error);
@@ -305,18 +316,24 @@ export class AppointmentService {
             return;
           }
 
-          const clientName = await prisma.user.findUnique({
-            where: { id: data.userId },
-            select: { name: true },
-          });
+          let clientDisplayName = 'Un cliente';
+          if (data.userId) {
+            const client = await prisma.user.findUnique({
+              where: { id: data.userId },
+              select: { name: true },
+            });
+            clientDisplayName = client?.name || 'Un cliente';
+          } else if (data.clientName) {
+            clientDisplayName = data.clientName;
+          }
 
           const dateTimeStr = formatDateTimeInSpanish(appointment.date, appointment.time);
 
           console.log(`📤 Sending notification to barber user: ${barberUser.id} (${barberUser.email}) for appointment: ${appointment.id}`);
-          
+
           await notificationService.sendNotificationToUser(barberUser.id, {
             title: 'Nueva Cita Reservada',
-            body: `${clientName?.name || 'Un cliente'} ha reservado una cita para el ${dateTimeStr}`,
+            body: `${clientDisplayName} ha reservado una cita para el ${dateTimeStr}`,
             data: {
               type: 'appointment_created',
               appointmentId: appointment.id,
@@ -338,9 +355,9 @@ export class AppointmentService {
    */
   async getAllAppointments(page: number = 1, limit: number = 10, search?: string, status?: string, dateFrom?: Date, dateTo?: Date) {
     const skip = (page - 1) * limit;
-    
+
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { user: { name: { contains: search } } },
@@ -349,11 +366,11 @@ export class AppointmentService {
         { barber: { email: { contains: search } } },
       ];
     }
-    
+
     if (status) {
       where.status = status;
     }
-    
+
     if (dateFrom || dateTo) {
       where.date = {};
       if (dateFrom) {
@@ -518,12 +535,12 @@ export class AppointmentService {
       barberId: appointment.barberId,
       serviceId: appointment.serviceId,
       client: {
-        id: appointment.user.id,
-        name: appointment.user.name,
-        email: appointment.user.email,
-        phone: appointment.user.phone,
-        avatar: appointment.user.avatar,
-        avatarSeed: appointment.user.avatarSeed,
+        id: appointment.user?.id || 'guest',
+        name: appointment.user?.name || appointment.clientName || 'Cliente Invitado',
+        email: appointment.user?.email || '',
+        phone: appointment.user?.phone || appointment.clientPhone || '',
+        avatar: appointment.user?.avatar || null,
+        avatarSeed: appointment.user?.avatarSeed || null,
       },
       barber: {
         id: barber.id,
@@ -551,6 +568,8 @@ export class AppointmentService {
       notes: appointment.notes,
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
+      clientName: appointment.clientName,
+      clientPhone: appointment.clientPhone,
     };
   }
 
@@ -630,12 +649,12 @@ export class AppointmentService {
           barberId: appointment.barberId,
           serviceId: appointment.serviceId,
           client: {
-            id: appointment.user.id,
-            name: appointment.user.name,
-            email: appointment.user.email,
-            phone: appointment.user.phone,
-            avatar: appointment.user.avatar,
-            avatarSeed: appointment.user.avatarSeed,
+            id: appointment.user?.id || 'guest',
+            name: appointment.user?.name || appointment.clientName || 'Cliente Invitado',
+            email: appointment.user?.email || '',
+            phone: appointment.user?.phone || appointment.clientPhone || '',
+            avatar: appointment.user?.avatar || null,
+            avatarSeed: appointment.user?.avatarSeed || null,
           },
           barber: appointment.barber ? {
             id: appointment.barber.id,
@@ -653,6 +672,8 @@ export class AppointmentService {
           notes: appointment.notes,
           createdAt: appointment.createdAt,
           updatedAt: appointment.updatedAt,
+          clientName: appointment.clientName,
+          clientPhone: appointment.clientPhone,
         };
       })
     );
@@ -728,12 +749,12 @@ export class AppointmentService {
       barberId: appointment.barberId,
       serviceId: appointment.serviceId,
       client: {
-        id: appointment.user.id,
-        name: appointment.user.name,
-        email: appointment.user.email,
-        phone: appointment.user.phone,
-        avatar: appointment.user.avatar,
-        avatarSeed: appointment.user.avatarSeed,
+        id: appointment.user?.id || 'guest',
+        name: appointment.user?.name || appointment.clientName || 'Cliente Invitado',
+        email: appointment.user?.email || '',
+        phone: appointment.user?.phone || appointment.clientPhone || '',
+        avatar: appointment.user?.avatar || null,
+        avatarSeed: appointment.user?.avatarSeed || null,
       },
       barber: {
         id: barber.id,
@@ -761,6 +782,8 @@ export class AppointmentService {
       notes: appointment.notes,
       createdAt: appointment.createdAt,
       updatedAt: appointment.updatedAt,
+      clientName: appointment.clientName,
+      clientPhone: appointment.clientPhone,
     };
 
     // Emitir evento de pago verificado
@@ -786,21 +809,24 @@ export class AppointmentService {
         });
 
         if (verified) {
-          // Pago verificado - notificar a cliente y barbero
-          await notificationService.sendNotificationToUser(appointment.userId, {
-            title: 'Pago Verificado ✅',
-            body: `Tu pago ha sido verificado. Tu cita con ${barber.name} está confirmada para el ${dateTimeStr}`,
-            data: {
-              type: 'payment_verified',
-              appointmentId: appointment.id,
-              userId: appointment.userId,
-            },
-          });
+          // Pago verificado - notificar a cliente (SI EXISTE) y barbero
+          if (appointment.userId) {
+            await notificationService.sendNotificationToUser(appointment.userId, {
+              title: 'Pago Verificado ✅',
+              body: `Tu pago ha sido verificado. Tu cita con ${barber.name} está confirmada para el ${dateTimeStr}`,
+              data: {
+                type: 'payment_verified',
+                appointmentId: appointment.id,
+                userId: appointment.userId,
+              },
+            });
+          }
 
           if (barberUser) {
+            const clientName = appointment.user?.name || appointment.clientName || 'Un cliente';
             await notificationService.sendNotificationToUser(barberUser.id, {
-              title: 'Pago Verificado',
-              body: `El pago de ${appointment.user.name} ha sido verificado. Cita confirmada para el ${dateTimeStr}`,
+              title: 'Pago Recibido 💰',
+              body: `Se ha verificado el pago de ${clientName}`,
               data: {
                 type: 'payment_verified',
                 appointmentId: appointment.id,
@@ -808,11 +834,11 @@ export class AppointmentService {
               },
             });
           }
-        } else {
-          // Pago rechazado - notificar solo al cliente
+        } else if (appointment.userId) {
+          // Pago rechazado - notificar solo al cliente (SI EXISTE)
           await notificationService.sendNotificationToUser(appointment.userId, {
             title: 'Pago Rechazado ❌',
-            body: `Tu comprobante de pago ha sido rechazado. Por favor, sube un nuevo comprobante o contacta al barbero.`,
+            body: `Tu comprobante de pago no pudo ser verificado. Por favor contacta al soporte o intenta nuevamente.`,
             data: {
               type: 'payment_rejected',
               appointmentId: appointment.id,
@@ -821,8 +847,7 @@ export class AppointmentService {
           });
         }
       } catch (error) {
-        console.error('Error sending payment verification notifications:', error);
-        // No fallar la operación si la notificación falla
+        console.error('Error sending payment notification:', error);
       }
     });
 
@@ -911,13 +936,20 @@ export class AppointmentService {
       userId: appointment.userId,
       barberId: appointment.barberId,
       serviceId: appointment.serviceId,
-      client: {
+      client: appointment.user ? {
         id: appointment.user.id,
         name: appointment.user.name,
         email: appointment.user.email,
         phone: appointment.user.phone,
         avatar: appointment.user.avatar,
         avatarSeed: appointment.user.avatarSeed,
+      } : {
+        id: 'guest',
+        name: appointment.clientName || 'Cliente',
+        email: '',
+        phone: appointment.clientPhone || '',
+        avatar: null,
+        avatarSeed: null,
       },
       barber: {
         id: barber.id,
@@ -978,16 +1010,18 @@ export class AppointmentService {
             // Por ahora, no enviamos notificación aquí para evitar duplicados
             // El controlador de cancelAppointment maneja las notificaciones con el contexto correcto
           } else if (data.status === 'COMPLETED') {
-            // Cita completada - notificar al cliente
-            await notificationService.sendNotificationToUser(appointment.userId, {
-              title: 'Cita Completada',
-              body: `Tu cita con ${barber.name} ha sido completada. ¡Gracias por tu visita!`,
-              data: {
-                type: 'appointment_completed',
-                appointmentId: appointment.id,
-                userId: appointment.userId,
-              },
-            });
+            // Cita completada - notificar al cliente (SI EXISTE)
+            if (appointment.userId) {
+              await notificationService.sendNotificationToUser(appointment.userId, {
+                title: 'Cita Completada',
+                body: `Tu cita con ${barber.name} ha sido completada. ¡Gracias por tu visita!`,
+                data: {
+                  type: 'appointment_completed',
+                  appointmentId: appointment.id,
+                  userId: appointment.userId,
+                },
+              });
+            }
           }
         }
 
@@ -996,22 +1030,25 @@ export class AppointmentService {
         const timeChanged = data.time && oldAppointment.time !== appointment.time;
 
         if (dateChanged || timeChanged) {
-          // Notificar a cliente y barbero sobre el cambio
-          await notificationService.sendNotificationToUser(appointment.userId, {
-            title: 'Cita Modificada',
-            body: `Tu cita con ${barber.name} ha sido modificada. Nueva fecha: ${dateTimeStr}`,
-            data: {
-              type: 'appointment_updated',
-              appointmentId: appointment.id,
-              userId: appointment.userId,
-              changeType: 'date_time',
-            },
-          });
+          // Notificar a cliente (SI EXISTE) y barbero sobre el cambio
+          if (appointment.userId) {
+            await notificationService.sendNotificationToUser(appointment.userId, {
+              title: 'Cita Modificada',
+              body: `Tu cita con ${barber.name} ha sido modificada. Nueva fecha: ${dateTimeStr}`,
+              data: {
+                type: 'appointment_updated',
+                appointmentId: appointment.id,
+                userId: appointment.userId,
+                changeType: 'date_time',
+              },
+            });
+          }
 
           if (barberUser) {
+            const clientName = appointment.user?.name || appointment.clientName || 'Un cliente';
             await notificationService.sendNotificationToUser(barberUser.id, {
               title: 'Cita Modificada',
-              body: `La cita con ${appointment.user.name} ha sido modificada. Nueva fecha: ${dateTimeStr}`,
+              body: `La cita con ${clientName} ha sido modificada. Nueva fecha: ${dateTimeStr}`,
               data: {
                 type: 'appointment_updated',
                 appointmentId: appointment.id,
@@ -1088,22 +1125,25 @@ export class AppointmentService {
           select: { id: true },
         });
 
-        // Notificar al cliente
-        await notificationService.sendNotificationToUser(appointment.userId, {
-          title: 'Cita Eliminada',
-          body: `Tu cita con ${appointment.barber.name} para el ${dateTimeStr} ha sido eliminada`,
-          data: {
-            type: 'appointment_deleted',
-            appointmentId: appointment.id,
-            userId: appointment.userId,
-          },
-        });
+        // Notificar al cliente (SI EXISTE)
+        if (appointment.userId) {
+          await notificationService.sendNotificationToUser(appointment.userId, {
+            title: 'Cita Eliminada',
+            body: `Tu cita con ${appointment.barber.name} para el ${dateTimeStr} ha sido eliminada`,
+            data: {
+              type: 'appointment_deleted',
+              appointmentId: appointment.id,
+              userId: appointment.userId,
+            },
+          });
+        }
 
         // Notificar al barbero
         if (barberUser) {
+          const clientName = appointment.user?.name || appointment.clientName || 'Un cliente';
           await notificationService.sendNotificationToUser(barberUser.id, {
             title: 'Cita Eliminada',
-            body: `La cita con ${appointment.user.name} para el ${dateTimeStr} ha sido eliminada`,
+            body: `La cita con ${clientName} para el ${dateTimeStr} ha sido eliminada`,
             data: {
               type: 'appointment_deleted',
               appointmentId: appointment.id,

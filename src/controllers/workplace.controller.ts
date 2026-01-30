@@ -43,15 +43,42 @@ class WorkplaceController {
 
   async getBestWorkplaces(req: Request, res: Response): Promise<void> {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
-      const workplaces = await workplaceService.getBestWorkplaces(limit);
-      
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+      const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : 0;
+      const result = await workplaceService.getBestWorkplacesWithTotal(limit, offset);
+
+      res.status(200).json({
+        success: true,
+        data: result.workplaces,
+        pagination: {
+          limit,
+          offset,
+          total: result.total,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get best workplaces';
+      res.status(500).json({ success: false, message });
+    }
+  }
+
+  async searchWorkplaces(req: Request, res: Response): Promise<void> {
+    try {
+      const q = req.query.q as string | undefined;
+      if (!q || typeof q !== 'string' || !q.trim()) {
+        res.status(400).json({
+          success: false,
+          message: 'Search query is required',
+        });
+        return;
+      }
+      const workplaces = await workplaceService.searchWorkplaces(q);
       res.status(200).json({
         success: true,
         data: workplaces,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to get best workplaces';
+      const message = error instanceof Error ? error.message : 'Failed to search workplaces';
       res.status(500).json({ success: false, message });
     }
   }
