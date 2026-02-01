@@ -110,7 +110,7 @@ export class BarberService {
     const emails = barbers.map(b => b.email);
     const users = await prisma.user.findMany({
       where: { email: { in: emails } },
-      select: { email: true, avatar: true, avatarSeed: true },
+      select: { email: true, avatar: true, avatarSeed: true, phone: true },
     });
 
     // Create lookup map for O(1) access
@@ -123,6 +123,7 @@ export class BarberService {
         ...barber,
         avatar: user?.avatar || barber.image,
         avatarSeed: user?.avatarSeed ?? `${barber.name}-${barber.id.slice(-6)}`,
+        phone: user?.phone,
       };
     });
   }
@@ -158,7 +159,7 @@ export class BarberService {
     const emails = barbers.map(b => b.email);
     const users = await prisma.user.findMany({
       where: { email: { in: emails } },
-      select: { email: true, avatar: true, avatarSeed: true },
+      select: { email: true, avatar: true, avatarSeed: true, phone: true },
     });
 
     // Create lookup map for O(1) access
@@ -171,6 +172,7 @@ export class BarberService {
         ...barber,
         avatar: user?.avatar || barber.image,
         avatarSeed: user?.avatarSeed ?? `${barber.name}-${barber.id.slice(-6)}`,
+        phone: user?.phone,
       };
     });
 
@@ -202,13 +204,14 @@ export class BarberService {
     // Enrich with user avatar data
     const user = await prisma.user.findUnique({
       where: { email: barber.email },
-      select: { avatar: true, avatarSeed: true },
+      select: { avatar: true, avatarSeed: true, phone: true },
     });
 
     return {
       ...barber,
       avatar: user?.avatar || barber.image,
       avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
+      phone: user?.phone,
     };
   }
 
@@ -301,7 +304,7 @@ export class BarberService {
       filteredBarbers.map(async (barber: any) => {
         const user = await prisma.user.findUnique({
           where: { email: barber.email },
-          select: { avatar: true, avatarSeed: true },
+          select: { avatar: true, avatarSeed: true, phone: true },
         });
 
         return {
@@ -330,7 +333,7 @@ export class BarberService {
       barbers.map(async (barber: any) => {
         const user = await prisma.user.findUnique({
           where: { email: barber.email },
-          select: { avatar: true, avatarSeed: true },
+          select: { avatar: true, avatarSeed: true, phone: true },
         });
 
         return {
@@ -395,7 +398,7 @@ export class BarberService {
         const barber = fav.barber;
         const user = await prisma.user.findUnique({
           where: { email: barber.email },
-          select: { avatar: true, avatarSeed: true },
+          select: { avatar: true, avatarSeed: true, phone: true },
         });
 
         return {
@@ -403,6 +406,7 @@ export class BarberService {
           avatar: user?.avatar || barber.image,
           avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
           favoritedAt: fav.createdAt,
+          phone: user?.phone,
         };
       })
     );
@@ -434,7 +438,7 @@ export class BarberService {
     // Enrich with user avatar data
     const user = await prisma.user.findUnique({
       where: { email: barber.email },
-      select: { avatar: true, avatarSeed: true },
+      select: { avatar: true, avatarSeed: true, phone: true },
     });
 
     return {

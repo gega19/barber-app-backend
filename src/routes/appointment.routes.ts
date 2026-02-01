@@ -9,6 +9,7 @@ const router = Router();
 router.get('/', authenticate, appointmentController.getMyAppointments.bind(appointmentController));
 router.post('/', authenticate, appointmentController.createAppointment.bind(appointmentController));
 router.get('/barber/:barberId/queue', authenticate, appointmentController.getBarberQueue.bind(appointmentController));
+router.get('/:id', authenticate, appointmentController.getAppointmentById.bind(appointmentController));
 router.put('/:id/cancel', authenticate, appointmentController.cancelAppointment.bind(appointmentController));
 router.put('/:id/attend', authenticate, appointmentController.markAsAttended.bind(appointmentController));
 

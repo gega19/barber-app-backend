@@ -11,8 +11,24 @@ export class AppointmentService {
       where: { userId },
       include: {
         barber: {
-          include: {
-            specialtyRef: true,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            specialty: true,
+            rating: true,
+            image: true,
+            location: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
           },
         },
       },
@@ -26,18 +42,8 @@ export class AppointmentService {
         const barber = appointment.barber;
         const user = await prisma.user.findUnique({
           where: { email: barber.email },
-          select: { avatar: true, avatarSeed: true },
-        });
-
-        // Get payment method name if paymentMethod ID exists
-        let paymentMethodName = null;
-        if (appointment.paymentMethod) {
-          const paymentMethod = await prisma.paymentMethod.findUnique({
-            where: { id: appointment.paymentMethod },
-            select: { name: true },
-          });
-          paymentMethodName = paymentMethod?.name || null;
-        }
+          select: { avatar: true, avatarSeed: true, phone: true },
+        }) as { avatar: string | null; avatarSeed: string | null; phone: string | null } | null;
 
         return {
           id: appointment.id,
@@ -45,23 +51,26 @@ export class AppointmentService {
           barber: {
             id: barber.id,
             name: barber.name,
-            email: barber.email,
             specialty: barber.specialty,
             rating: barber.rating,
             image: user?.avatar || barber.image,
             avatarSeed: user?.avatarSeed || null,
             location: barber.location,
+            latitude: barber.latitude,
+            longitude: barber.longitude,
+            phone: user?.phone || null,
           },
+          service: appointment.service ? {
+            id: appointment.service.id,
+            name: appointment.service.name,
+            description: appointment.service.description,
+            price: appointment.service.price,
+          } : null,
+          serviceId: appointment.serviceId,
           date: appointment.date,
           time: appointment.time,
           status: appointment.status,
-          paymentMethod: appointment.paymentMethod,
-          paymentMethodName: paymentMethodName,
           paymentStatus: appointment.paymentStatus,
-          paymentProof: appointment.paymentProof,
-          notes: appointment.notes,
-          createdAt: appointment.createdAt,
-          updatedAt: appointment.updatedAt,
         };
       })
     );
@@ -77,15 +86,16 @@ export class AppointmentService {
           select: {
             id: true,
             name: true,
-            email: true,
-            phone: true,
             avatar: true,
             avatarSeed: true,
           },
         },
-        barber: {
-          include: {
-            specialtyRef: true,
+        service: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            price: true,
           },
         },
       },
@@ -94,62 +104,34 @@ export class AppointmentService {
       },
     });
 
-    const enrichedAppointments = await Promise.all(
-      appointments.map(async (appointment: any) => {
-        const user = appointment.user;
-        const barber = appointment.barber;
-        const barberUser = await prisma.user.findUnique({
-          where: { email: barber.email },
-          select: { avatar: true, avatarSeed: true },
-        });
-
-        // Get payment method name if paymentMethod ID exists
-        let paymentMethodName = null;
-        if (appointment.paymentMethod) {
-          const paymentMethod = await prisma.paymentMethod.findUnique({
-            where: { id: appointment.paymentMethod },
-            select: { name: true },
-          });
-          paymentMethodName = paymentMethod?.name || null;
-        }
-
-        return {
-          id: appointment.id,
-          userId: appointment.userId,
-          barberId: appointment.barberId,
-          client: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            avatar: user.avatar,
-            avatarSeed: user.avatarSeed,
-          },
-          barber: {
-            id: barber.id,
-            name: barber.name,
-            email: barber.email,
-            specialty: barber.specialty,
-            rating: barber.rating,
-            image: barberUser?.avatar || barber.image,
-            avatarSeed: barberUser?.avatarSeed || null,
-            location: barber.location,
-          },
-          date: appointment.date,
-          time: appointment.time,
-          status: appointment.status,
-          paymentMethod: appointment.paymentMethod,
-          paymentMethodName: paymentMethodName,
-          paymentStatus: appointment.paymentStatus,
-          paymentProof: appointment.paymentProof,
-          notes: appointment.notes,
-          createdAt: appointment.createdAt,
-          updatedAt: appointment.updatedAt,
-        };
-      })
-    );
-
-    return enrichedAppointments;
+    return appointments.map((appointment: any) => ({
+      id: appointment.id,
+      userId: appointment.userId,
+      client: appointment.user ? {
+        id: appointment.user.id,
+        name: appointment.user.name,
+        avatar: appointment.user.avatar,
+        avatarSeed: appointment.user.avatarSeed,
+      } : {
+        id: 'guest',
+        name: appointment.clientName || 'Cliente Invitado',
+        avatar: null,
+        avatarSeed: null,
+      },
+      clientName: appointment.clientName,
+      clientPhone: appointment.clientPhone,
+      service: appointment.service ? {
+        id: appointment.service.id,
+        name: appointment.service.name,
+        description: appointment.service.description,
+        price: appointment.service.price,
+      } : null,
+      serviceId: appointment.serviceId,
+      date: appointment.date,
+      time: appointment.time,
+      status: appointment.status,
+      paymentStatus: appointment.paymentStatus,
+    }));
   }
 
   /**
@@ -240,8 +222,8 @@ export class AppointmentService {
       const barber = appointment.barber;
       const user = await tx.user.findUnique({
         where: { email: barber.email },
-        select: { avatar: true, avatarSeed: true },
-      });
+        select: { avatar: true, avatarSeed: true, phone: true },
+      }) as { avatar: string | null; avatarSeed: string | null; phone: string | null } | null;
 
       // Get payment method name if paymentMethod ID exists
       let paymentMethodName = null;
@@ -269,6 +251,7 @@ export class AppointmentService {
           image: user?.avatar || barber.image,
           avatarSeed: user?.avatarSeed || null,
           location: barber.location,
+          phone: user?.phone || null,
         },
         service: appointment.service ? {
           id: appointment.service.id,
@@ -416,8 +399,8 @@ export class AppointmentService {
         const barber = appointment.barber;
         const barberUser = await prisma.user.findUnique({
           where: { email: barber.email },
-          select: { avatar: true, avatarSeed: true },
-        });
+          select: { avatar: true, avatarSeed: true, phone: true },
+        }) as { avatar: string | null; avatarSeed: string | null; phone: string | null } | null;
 
         // Get payment method name if paymentMethod ID exists
         let paymentMethodName = null;
@@ -516,8 +499,8 @@ export class AppointmentService {
     const barber = appointment.barber;
     const barberUser = await prisma.user.findUnique({
       where: { email: barber.email },
-      select: { avatar: true, avatarSeed: true },
-    });
+      select: { avatar: true, avatarSeed: true, phone: true },
+    }) as { avatar: string | null; avatarSeed: string | null; phone: string | null } | null;
 
     // Get payment method name if paymentMethod ID exists
     let paymentMethodName = null;
@@ -551,6 +534,9 @@ export class AppointmentService {
         image: barberUser?.avatar || barber.image,
         avatarSeed: barberUser?.avatarSeed || null,
         location: barber.location,
+        latitude: barber.latitude,
+        longitude: barber.longitude,
+        phone: barberUser?.phone || null,
       },
       service: appointment.service ? {
         id: appointment.service.id,
