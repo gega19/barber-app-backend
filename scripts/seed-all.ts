@@ -107,6 +107,33 @@ async function seedAdminUser() {
   console.log('✨ Admin user seeding completed!');
 }
 
+// Reglas de ayuda para la competencia (app). Solo se insertan si no hay ninguna.
+const DEFAULT_HELP_RULES = [
+  'Solo suman puntos las citas completadas.',
+  'El cliente debe tener teléfono verificado para que la cita cuente.',
+  'Cada cita cuenta solo para un barbero y en el periodo en que se realizó.',
+  'Al cerrar el periodo, el barbero con más puntos es el ganador.',
+];
+
+async function seedCompetitionHelpRules() {
+  console.log('🌱 Seeding competition help rules...');
+
+  const count = await prisma.competitionHelpRule.count();
+  if (count > 0) {
+    console.log(`   Ya existen ${count} reglas. Omitiendo.`);
+    console.log('✨ Competition help rules seeding skipped (already present).');
+    return;
+  }
+
+  for (let i = 0; i < DEFAULT_HELP_RULES.length; i++) {
+    await prisma.competitionHelpRule.create({
+      data: { content: DEFAULT_HELP_RULES[i], sortOrder: i },
+    });
+    console.log(`✅ Regla ${i + 1} creada`);
+  }
+  console.log('✨ Competition help rules seeding completed!');
+}
+
 async function main() {
   console.log('🚀 Starting database seeding...\n');
 
@@ -118,6 +145,9 @@ async function main() {
     console.log('');
     
     await seedAdminUser();
+    console.log('');
+
+    await seedCompetitionHelpRules();
     console.log('');
 
     console.log('✨ All seeding completed successfully!');

@@ -28,6 +28,7 @@ import campaignRoutes from './routes/campaign.routes';
 import appVersionRoutes from './routes/app-version.routes';
 import legalDocumentRoutes from './routes/legal-document.routes';
 import myWorkplaceRoutes from './routes/my-workplace.routes';
+import competitionRoutes from './routes/competition.routes';
 import path from 'path';
 import express from 'express';
 import http from 'http';
@@ -71,6 +72,7 @@ app.use('/api/fcm-tokens', fcmTokenRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/legal', legalDocumentRoutes);
 app.use('/api/my-workplace', myWorkplaceRoutes);
+app.use('/api/competition', competitionRoutes);
 
 // Rutas de app version (públicas y admin)
 app.use('/api/app', appVersionRoutes);

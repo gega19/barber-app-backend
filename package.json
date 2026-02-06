@@ -20,6 +20,10 @@
     "seed:dev": "ts-node prisma/seed-dev.ts",
     "seed:admin": "ts-node scripts/update-user-roles.ts",
     "recompute-wall-scores": "ts-node scripts/recompute-wall-scores.ts",
+    "seed:competition": "ts-node scripts/seed-competition-period.ts",
+    "seed:competition-points": "ts-node scripts/seed-competition-points.ts",
+    "seed:competition-test": "ts-node scripts/seed-competition-for-test.ts",
+    "test:competition": "ts-node scripts/test-competition-flow.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

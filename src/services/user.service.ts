@@ -94,6 +94,7 @@ class UserService {
           workplaceId: true,
           createdAt: true,
           updatedAt: true,
+          phoneVerifiedAt: true,
         },
         skip,
         take: limit,
@@ -104,11 +105,23 @@ class UserService {
       prisma.user.count({ where }),
     ]);
 
+    // Check which users have barber profiles
+    const userEmails = users.map(u => u.email);
+    const barbers = await prisma.barber.findMany({
+      where: {
+        email: { in: userEmails },
+      },
+      select: {
+        email: true,
+      },
+    });
+    const barberEmails = new Set(barbers.map(b => b.email));
+
     return {
       users: users.map(user => ({
         ...user,
         role: user.role.toString(),
-        isBarber: user.role === 'BARBER' || user.role === 'BARBERSHOP',
+        isBarber: user.role === 'BARBER' || user.role === 'BARBERSHOP' || barberEmails.has(user.email),
       })),
       pagination: {
         page,
@@ -136,6 +149,7 @@ class UserService {
         workplaceId: true,
         createdAt: true,
         updatedAt: true,
+        phoneVerifiedAt: true,
       },
     });
 
@@ -188,6 +202,7 @@ class UserService {
         workplaceId: true,
         createdAt: true,
         updatedAt: true,
+        phoneVerifiedAt: true,
       },
     });
 
@@ -251,6 +266,7 @@ class UserService {
         workplaceId: true,
         createdAt: true,
         updatedAt: true,
+        phoneVerifiedAt: true,
       },
     });
 

@@ -15,6 +15,12 @@ enum UserRole {
   BARBER
 }
 
+enum CompetitionPeriodStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
 model User {
   id               String         @id @default(cuid())
   email            String         @unique
@@ -131,8 +137,57 @@ model Barber {
   availability    BarberAvailability[]
   availabilityExceptions BarberAvailabilityException[]
   courses         BarberCourse[]
+  periodPoints    BarberPeriodPoints[]
+  winnerPeriods   CompetitionPeriod[]  @relation("CompetitionWinner")
 
   @@map("barbers")
+}
+
+model CompetitionPeriod {
+  id                       String                   @id @default(cuid())
+  name                     String?
+  startDate                DateTime
+  endDate                  DateTime
+  status                   CompetitionPeriodStatus  @default(DRAFT)
+  winnerBarberId           String?
+  prize                    String?
+  closedAt                 DateTime?
+  finalStandingsSnapshot   Json?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+
+  winner          Barber?                  @relation("CompetitionWinner", fields: [winnerBarberId], references: [id], onDelete: SetNull)
+  points          BarberPeriodPoints[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("competition_periods")
+}
+
+model BarberPeriodPoints {
+  id        String   @id @default(cuid())
+  barberId  String
+  periodId  String
+  points    Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  barber    Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  period    CompetitionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, periodId])
+  @@index([periodId])
+  @@index([barberId])
+  @@map("barber_period_points")
+}
+
+model CompetitionHelpRule {
+  id        String   @id @default(cuid())
+  content   String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([sortOrder])
+  @@map("competition_help_rules")
 }
 
 model Service {

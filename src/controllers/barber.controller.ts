@@ -67,6 +67,7 @@ class BarberController {
       res.status(200).json({
         success: true,
         data: result.barbers,
+        lastWinnerBarberId: result.lastWinnerBarberId ?? null,
         pagination: {
           limit,
           offset,

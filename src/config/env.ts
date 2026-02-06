@@ -95,6 +95,17 @@ export const config = {
     process.env.PHONE_CODE_COOLDOWN_SECONDS || '60',
     10,
   ),
+
+  competition: {
+    pointsPerAppointment: parseInt(
+      process.env.COMPETITION_POINTS_PER_APPOINTMENT || '10',
+      10,
+    ),
+    maxPointsPerClientPerPeriod: parseInt(
+      process.env.COMPETITION_MAX_POINTS_PER_CLIENT_PER_PERIOD || '0',
+      10,
+    ) || undefined, // 0 = no cap
+  },
 };
 
 // Validate required environment variables

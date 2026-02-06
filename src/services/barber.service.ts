@@ -1,5 +1,6 @@
 import prisma from '../config/prisma';
 import { validateAndNormalizeInstagram, validateAndNormalizeTikTok } from '../utils/social-media.validator';
+import competitionService from './competition.service';
 
 /** Wall score weights (must sum to 1). Tunable for ranking. */
 const WALL_SCORE_WEIGHTS = {
@@ -27,6 +28,7 @@ export class BarberService {
       where: { id: barberId },
       select: {
         id: true,
+        email: true,
         rating: true,
         reviews: true,
         createdAt: true,
@@ -48,6 +50,12 @@ export class BarberService {
 
     if (!barber) return;
 
+    const user = await prisma.user.findUnique({
+      where: { email: barber.email },
+      select: { phoneVerifiedAt: true },
+    });
+    const isBarberVerified = user?.phoneVerifiedAt != null;
+
     const rating = barber.rating ?? 0;
     const reviewsCount = barber.reviews ?? 0;
 
@@ -60,7 +68,7 @@ export class BarberService {
     const scoreTenure = Math.min(100, (Math.min(monthsSinceCreated, WALL_SCORE_TENURE_MONTHS_CAP) / WALL_SCORE_TENURE_MONTHS_CAP) * 100);
 
     let profileChecks = 0;
-    const totalProfileChecks = 7;
+    const totalProfileChecks = 8;
     if (barber.bio?.trim()) profileChecks += 1;
     if (barber.image?.trim()) profileChecks += 1;
     if (barber.location?.trim()) profileChecks += 1;
@@ -68,6 +76,7 @@ export class BarberService {
     if (barber.slug != null && barber.slug.trim() !== '') profileChecks += 1;
     if (barber._count.availability >= 1) profileChecks += 1;
     if (barber._count.portfolio >= 1) profileChecks += 1;
+    if (isBarberVerified) profileChecks += 1;
     const scoreProfile = (profileChecks / totalProfileChecks) * 100;
 
     const wallScore = Math.round(
@@ -116,14 +125,23 @@ export class BarberService {
     // Create lookup map for O(1) access
     const userMap = new Map(users.map(u => [u.email, u]));
 
-    // Enrich barbers with user data
+    // Get Top positions for all barbers in batch
+    const barberIds = barbers.map(b => b.id);
+    const topPositionsMap = await this._getTopPositionsForBarbers(barberIds);
+
+    // Enrich barbers with user data and top positions
     return barbers.map((barber: any) => {
       const user = userMap.get(barber.email);
+      const topPositions = topPositionsMap.get(barber.id) ?? { top1: 0, top2: 0, top3: 0, isLastWinner: false };
       return {
         ...barber,
         avatar: user?.avatar || barber.image,
         avatarSeed: user?.avatarSeed ?? `${barber.name}-${barber.id.slice(-6)}`,
         phone: user?.phone,
+        isLastWinner: topPositions.isLastWinner,
+        top1Count: topPositions.top1,
+        top2Count: topPositions.top2,
+        top3Count: topPositions.top3,
       };
     });
   }
@@ -165,18 +183,30 @@ export class BarberService {
     // Create lookup map for O(1) access
     const userMap = new Map(users.map(u => [u.email, u]));
 
-    // Enrich barbers with user data
+    // Get Top positions for all barbers in batch
+    const barberIds = barbers.map(b => b.id);
+    const topPositionsMap = await this._getTopPositionsForBarbers(barberIds);
+
     const enrichedBarbers = barbers.map((barber: any) => {
       const user = userMap.get(barber.email);
+      const topPositions = topPositionsMap.get(barber.id) ?? { top1: 0, top2: 0, top3: 0, isLastWinner: false };
       return {
         ...barber,
         avatar: user?.avatar || barber.image,
         avatarSeed: user?.avatarSeed ?? `${barber.name}-${barber.id.slice(-6)}`,
         phone: user?.phone,
+        isLastWinner: topPositions.isLastWinner,
+        top1Count: topPositions.top1,
+        top2Count: topPositions.top2,
+        top3Count: topPositions.top3,
       };
     });
 
-    return { barbers: enrichedBarbers, total: totalCount };
+    // Get last winner ID if needed
+    const lastWinner = await competitionService.getLastWinner();
+    const lastWinnerBarberId = lastWinner?.barberId ?? null;
+
+    return { barbers: enrichedBarbers, total: totalCount, lastWinnerBarberId };
   }
 
   async getBarberById(id: string) {
@@ -207,11 +237,19 @@ export class BarberService {
       select: { avatar: true, avatarSeed: true, phone: true },
     });
 
+    // Get Top positions for this barber
+    const topPositionsMap = await this._getTopPositionsForBarbers([id]);
+    const topPositions = topPositionsMap.get(id) ?? { top1: 0, top2: 0, top3: 0, isLastWinner: false };
+
     return {
       ...barber,
       avatar: user?.avatar || barber.image,
       avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
       phone: user?.phone,
+      isLastWinner: topPositions.isLastWinner,
+      top1Count: topPositions.top1,
+      top2Count: topPositions.top2,
+      top3Count: topPositions.top3,
     };
   }
 
@@ -328,7 +366,11 @@ export class BarberService {
       },
     });
 
-    // Enrich with user avatar data
+    // Get Top positions for barbers
+    const barberIds = barbers.map(b => b.id);
+    const topPositionsMap = await this._getTopPositionsForBarbers(barberIds);
+
+    // Enrich with user avatar data and top positions
     const enrichedBarbers = await Promise.all(
       barbers.map(async (barber: any) => {
         const user = await prisma.user.findUnique({
@@ -336,10 +378,17 @@ export class BarberService {
           select: { avatar: true, avatarSeed: true, phone: true },
         });
 
+        const topPositions = topPositionsMap.get(barber.id) ?? { top1: 0, top2: 0, top3: 0, isLastWinner: false };
+
         return {
           ...barber,
           avatar: user?.avatar || barber.image,
           avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
+          phone: user?.phone,
+          isLastWinner: topPositions.isLastWinner,
+          top1Count: topPositions.top1,
+          top2Count: topPositions.top2,
+          top3Count: topPositions.top3,
         };
       })
     );
@@ -446,6 +495,60 @@ export class BarberService {
       avatar: user?.avatar || barber.image,
       avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
     };
+  }
+
+  /**
+   * Helper method to get Top positions (1, 2, 3) for multiple barbers in batch
+   * @param barberIds Array of barber IDs
+   * @returns Map with barberId as key and { top1, top2, top3, isLastWinner } as value
+   */
+  private async _getTopPositionsForBarbers(
+    barberIds: string[]
+  ): Promise<Map<string, { top1: number; top2: number; top3: number; isLastWinner: boolean }>> {
+    const topPositionsMap = new Map<string, { top1: number; top2: number; top3: number; isLastWinner: boolean }>();
+    
+    if (barberIds.length === 0) return topPositionsMap;
+
+    // Get all closed periods with snapshots
+    const allClosedPeriods = await prisma.competitionPeriod.findMany({
+      where: {
+        status: 'CLOSED',
+      },
+      orderBy: { endDate: 'desc' },
+      select: {
+        id: true,
+        finalStandingsSnapshot: true,
+        winnerBarberId: true,
+      },
+    });
+
+    // Filter periods that have snapshots
+    const closedPeriods = allClosedPeriods.filter(p => p.finalStandingsSnapshot != null);
+
+    // Only use the most recent closed period (first one after ordering by endDate desc)
+    if (closedPeriods.length > 0) {
+      const mostRecentPeriod = closedPeriods[0];
+      const snapshot = mostRecentPeriod.finalStandingsSnapshot as any[] | null;
+      
+      if (Array.isArray(snapshot) && snapshot.length > 0) {
+        for (const entry of snapshot) {
+          if (!entry?.barberId || !barberIds.includes(entry.barberId)) continue;
+          if (entry.position < 1 || entry.position > 3) continue;
+
+          const isLastWinner = entry.position === 1 && mostRecentPeriod.winnerBarberId === entry.barberId;
+          
+          if (entry.position === 1) {
+            topPositionsMap.set(entry.barberId, { top1: 1, top2: 0, top3: 0, isLastWinner });
+          } else if (entry.position === 2) {
+            topPositionsMap.set(entry.barberId, { top1: 0, top2: 1, top3: 0, isLastWinner: false });
+          } else if (entry.position === 3) {
+            topPositionsMap.set(entry.barberId, { top1: 0, top2: 0, top3: 1, isLastWinner: false });
+          }
+        }
+      }
+    }
+
+    return topPositionsMap;
   }
 }
 

@@ -412,6 +412,20 @@ export class AppointmentService {
           paymentMethodName = paymentMethod?.name || null;
         }
 
+        // Get active promotion for this barber at the time of the appointment
+        const appointmentDate = new Date(appointment.date);
+        const activePromotion = await prisma.promotion.findFirst({
+          where: {
+            barberId: appointment.barberId,
+            isActive: true,
+            validFrom: { lte: appointmentDate },
+            validUntil: { gte: appointmentDate },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+
         return {
           id: appointment.id,
           userId: appointment.userId,
@@ -451,6 +465,14 @@ export class AppointmentService {
           notes: appointment.notes,
           createdAt: appointment.createdAt,
           updatedAt: appointment.updatedAt,
+          promotion: activePromotion ? {
+            id: activePromotion.id,
+            title: activePromotion.title,
+            code: activePromotion.code,
+            discount: activePromotion.discount,
+            discountAmount: activePromotion.discountAmount,
+            description: activePromotion.description,
+          } : null,
         };
       })
     );
@@ -512,6 +534,20 @@ export class AppointmentService {
       paymentMethodName = paymentMethod?.name || null;
     }
 
+    // Get active promotion for this barber at the time of the appointment
+    const appointmentDate = new Date(appointment.date);
+    const activePromotion = await prisma.promotion.findFirst({
+      where: {
+        barberId: appointment.barberId,
+        isActive: true,
+        validFrom: { lte: appointmentDate },
+        validUntil: { gte: appointmentDate },
+      },
+      orderBy: {
+        createdAt: 'desc', // Get the most recent promotion if multiple
+      },
+    });
+
     return {
       id: appointment.id,
       userId: appointment.userId,
@@ -556,6 +592,14 @@ export class AppointmentService {
       updatedAt: appointment.updatedAt,
       clientName: appointment.clientName,
       clientPhone: appointment.clientPhone,
+      promotion: activePromotion ? {
+        id: activePromotion.id,
+        title: activePromotion.title,
+        code: activePromotion.code,
+        discount: activePromotion.discount,
+        discountAmount: activePromotion.discountAmount,
+        description: activePromotion.description,
+      } : null,
     };
   }
 
@@ -629,6 +673,20 @@ export class AppointmentService {
           paymentMethodName = paymentMethod?.name || null;
         }
 
+        // Get active promotion for this barber at the time of the appointment
+        const appointmentDate = new Date(appointment.date);
+        const activePromotion = appointment.barberId ? await prisma.promotion.findFirst({
+          where: {
+            barberId: appointment.barberId,
+            isActive: true,
+            validFrom: { lte: appointmentDate },
+            validUntil: { gte: appointmentDate },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        }) : null;
+
         return {
           id: appointment.id,
           userId: appointment.userId,
@@ -660,6 +718,14 @@ export class AppointmentService {
           updatedAt: appointment.updatedAt,
           clientName: appointment.clientName,
           clientPhone: appointment.clientPhone,
+          promotion: activePromotion ? {
+            id: activePromotion.id,
+            title: activePromotion.title,
+            code: activePromotion.code,
+            discount: activePromotion.discount,
+            discountAmount: activePromotion.discountAmount,
+            description: activePromotion.description,
+          } : null,
         };
       })
     );
@@ -729,6 +795,20 @@ export class AppointmentService {
       paymentMethodName = paymentMethod?.name || null;
     }
 
+    // Get active promotion for this barber at the time of the appointment
+    const appointmentDate = new Date(appointment.date);
+    const activePromotion = await prisma.promotion.findFirst({
+      where: {
+        barberId: appointment.barberId,
+        isActive: true,
+        validFrom: { lte: appointmentDate },
+        validUntil: { gte: appointmentDate },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
     const appointmentData = {
       id: appointment.id,
       userId: appointment.userId,
@@ -770,6 +850,14 @@ export class AppointmentService {
       updatedAt: appointment.updatedAt,
       clientName: appointment.clientName,
       clientPhone: appointment.clientPhone,
+      promotion: activePromotion ? {
+        id: activePromotion.id,
+        title: activePromotion.title,
+        code: activePromotion.code,
+        discount: activePromotion.discount,
+        discountAmount: activePromotion.discountAmount,
+        description: activePromotion.description,
+      } : null,
     };
 
     // Emitir evento de pago verificado

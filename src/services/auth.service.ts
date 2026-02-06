@@ -549,9 +549,13 @@ export class AuthService {
     if (currentUser.phoneVerifiedAt != null) {
       throw new Error('Phone is already verified and cannot be changed');
     }
+    const normalizedPhone = normalizePhoneToE164(phone);
+    if (!normalizedPhone) {
+      throw new Error('Invalid phone number');
+    }
     const existingByPhone = await prisma.user.findFirst({
       where: {
-        phone: phone.trim(),
+        phone: normalizedPhone,
         id: { not: userId },
       },
     });
@@ -559,7 +563,7 @@ export class AuthService {
       throw new Error('Phone number is already in use by another account');
     }
 
-    const valid = await checkVerificationCode(phone.trim(), code.trim());
+    const valid = await checkVerificationCode(normalizedPhone, code.trim());
     if (!valid) {
       throw new Error('Invalid or expired verification code');
     }
@@ -567,7 +571,7 @@ export class AuthService {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        phone: phone.trim(),
+        phone: normalizedPhone,
         phoneVerifiedAt: new Date(),
       },
       select: {
@@ -587,6 +591,15 @@ export class AuthService {
         updatedAt: true,
       },
     });
+
+    const barber = await prisma.barber.findUnique({
+      where: { email: updatedUser.email },
+      select: { id: true },
+    });
+    if (barber) {
+      await barberService.recomputeWallScore(barber.id);
+    }
+
     return updatedUser;
   }
 
@@ -621,6 +634,12 @@ export class AuthService {
     let barberId = '';
 
     await prisma.$transaction(async (tx: any) => {
+      // Actualizar el rol del usuario a BARBER cuando se crea el perfil de barbero
+      await tx.user.update({
+        where: { id: userId },
+        data: { role: 'BARBER' },
+      });
+
       const barber = await tx.barber.create({
         data: {
           name: user.name,
