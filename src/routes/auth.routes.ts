@@ -5,6 +5,8 @@ import {
   registerValidator,
   loginValidator,
   refreshTokenValidator,
+  sendPhoneCodeValidator,
+  confirmPhoneWithCodeValidator,
 } from '../validators/auth.validator';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -39,6 +41,8 @@ router.post('/logout', authenticate, authController.logout.bind(authController))
 router.get('/me', authenticate, authController.getCurrentUser.bind(authController));
 router.get('/stats', authenticate, authController.getUserStats.bind(authController));
 router.put('/profile', authenticate, authController.updateProfile.bind(authController));
+router.post('/send-phone-code', authenticate, validate(sendPhoneCodeValidator), authController.sendPhoneCode.bind(authController));
+router.post('/confirm-phone', authenticate, validate(confirmPhoneWithCodeValidator), authController.confirmPhone.bind(authController));
 router.delete('/delete-account', authenticate, authController.deleteAccount.bind(authController));
 router.post('/become-barber', authenticate, authController.becomeBarber.bind(authController));
 router.put('/become-barber/step2', authenticate, authController.updateBarberStep2.bind(authController));

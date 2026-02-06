@@ -84,6 +84,17 @@ export const config = {
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
   },
+
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID || '',
+  },
+
+  phoneCodeCooldownSeconds: parseInt(
+    process.env.PHONE_CODE_COOLDOWN_SECONDS || '60',
+    10,
+  ),
 };
 
 // Validate required environment variables

@@ -49,3 +49,38 @@ export const refreshTokenValidator: ValidationChain[] = [
     .withMessage('Refresh token is required'),
 ];
 
+export const confirmPhoneValidator: ValidationChain[] = [
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage('Phone is required')
+    .matches(/^\+?[\d\s-()]+$/)
+    .withMessage('Please provide a valid phone number (E.164 recommended)'),
+];
+
+/** Para enviar el código: solo phone */
+export const sendPhoneCodeValidator: ValidationChain[] = [
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage('Phone is required')
+    .matches(/^\+?[\d\s-()]+$/)
+    .withMessage('Please provide a valid phone number (E.164 recommended)'),
+];
+
+/** Para confirmar: phone + code */
+export const confirmPhoneWithCodeValidator: ValidationChain[] = [
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage('Phone is required')
+    .matches(/^\+?[\d\s-()]+$/)
+    .withMessage('Please provide a valid phone number (E.164 recommended)'),
+  body('code')
+    .trim()
+    .notEmpty()
+    .withMessage('Verification code is required')
+    .isLength({ min: 4, max: 8 })
+    .withMessage('Code must be between 4 and 8 characters'),
+];
+

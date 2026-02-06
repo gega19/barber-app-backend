@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
-import authService, { LoginDto, RegisterDto } from '../services/auth.service';
+import authService, {
+  LoginDto,
+  RegisterDto,
+  PhoneCodeCooldownError,
+} from '../services/auth.service';
 
 export class AuthController {
   async register(req: Request, res: Response): Promise<void> {
@@ -275,6 +279,89 @@ export class AuthController {
       const message = error instanceof Error ? error.message : 'Failed to delete account';
       const statusCode = message.includes('incorrecta') ? 400 : (message.includes('Unauthorized') ? 401 : 500);
       res.status(statusCode).json({ success: false, message });
+    }
+  }
+
+  async sendPhoneCode(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+      const { phone } = req.body;
+      if (!phone || typeof phone !== 'string') {
+        res.status(400).json({ success: false, message: 'Phone is required' });
+        return;
+      }
+      await authService.sendPhoneVerificationCode(userId, phone.trim());
+      res.status(200).json({ success: true, message: 'Verification code sent' });
+    } catch (error) {
+      if (error instanceof PhoneCodeCooldownError) {
+        res.status(429).json({
+          success: false,
+          message: error.message,
+          retryAfterSeconds: error.retryAfterSeconds,
+        });
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Failed to send code';
+      const isBusinessError =
+        message.includes('already verified') ||
+        message.includes('already in use') ||
+        message.includes('not configured');
+      res.status(isBusinessError ? 400 : 500).json({ success: false, message });
+    }
+  }
+
+  async confirmPhone(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'Unauthorized',
+        });
+        return;
+      }
+
+      const { phone, code } = req.body;
+
+      if (!phone || typeof phone !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'Phone is required',
+        });
+        return;
+      }
+      if (!code || typeof code !== 'string') {
+        res.status(400).json({
+          success: false,
+          message: 'Verification code is required',
+        });
+        return;
+      }
+
+      await authService.confirmPhoneVerification(userId, phone.trim(), code.trim());
+      const user = await authService.getCurrentUser(userId);
+      if (!user) {
+        res.status(404).json({ success: false, message: 'User not found' });
+        return;
+      }
+      res.status(200).json({
+        success: true,
+        data: user,
+        message: 'Phone verified successfully',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to verify phone';
+      const isBusinessError =
+        message.includes('already verified') ||
+        message.includes('already in use') ||
+        message.includes('Invalid or expired') ||
+        message.includes('not configured');
+      res.status(isBusinessError ? 400 : 500).json({ success: false, message });
     }
   }
 

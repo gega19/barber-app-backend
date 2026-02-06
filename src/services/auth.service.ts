@@ -1,13 +1,32 @@
 import prisma from '../config/prisma';
+import { config } from '../config/env';
 import { hashPassword, comparePassword } from '../utils/hash';
+import { normalizePhoneToE164 } from '../utils/phone';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
 import barberService from './barber.service';
+import {
+  isTwilioConfigured,
+  sendVerificationCode,
+  checkVerificationCode,
+} from './twilio.service';
+
+/** Error cuando el cooldown de reenvío no ha pasado. retryAfterSeconds indica segundos restantes. */
+export class PhoneCodeCooldownError extends Error {
+  constructor(
+    message: string,
+    public retryAfterSeconds: number,
+  ) {
+    super(message);
+    this.name = 'PhoneCodeCooldownError';
+  }
+}
 
 type User = {
   id: string;
   email: string;
   name: string;
   phone?: string | null;
+  phoneVerifiedAt?: Date | null;
   avatar?: string | null;
   avatarSeed?: string | null;
   location?: string | null;
@@ -71,6 +90,7 @@ export class AuthService {
         email: true,
         name: true,
         phone: true,
+        phoneVerifiedAt: true,
         avatar: true,
         avatarSeed: true,
         location: true,
@@ -134,6 +154,7 @@ export class AuthService {
         email: true,
         name: true,
         phone: true,
+        phoneVerifiedAt: true,
         avatar: true,
         avatarSeed: true,
         location: true,
@@ -204,6 +225,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         phone: user.phone,
+        phoneVerifiedAt: user.phoneVerifiedAt,
         avatar: user.avatar,
         avatarSeed: user.avatarSeed,
         location: user.location,
@@ -261,6 +283,7 @@ export class AuthService {
         email: true,
         name: true,
         phone: true,
+        phoneVerifiedAt: true,
         avatar: true,
         avatarSeed: true,
         location: true,
@@ -294,12 +317,14 @@ export class AuthService {
           email: true,
           name: true,
           phone: true,
+          phoneVerifiedAt: true,
           avatar: true,
           avatarSeed: true,
           location: true,
           country: true,
           gender: true,
           role: true,
+          workplaceId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -418,7 +443,9 @@ export class AuthService {
       where: { id: userId },
       data: {
         ...(data.name && { name: data.name }),
-        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.phone !== undefined && {
+          phone: normalizePhoneToE164(data.phone) || null,
+        }),
         ...(data.location !== undefined && { location: data.location }),
         ...(data.country !== undefined && { country: data.country }),
         ...(data.gender !== undefined && { gender: data.gender }),
@@ -430,6 +457,7 @@ export class AuthService {
         email: true,
         name: true,
         phone: true,
+        phoneVerifiedAt: true,
         avatar: true,
         avatarSeed: true,
         location: true,
@@ -441,6 +469,124 @@ export class AuthService {
       },
     });
 
+    return updatedUser;
+  }
+
+  /**
+   * Envía código de verificación por SMS vía Twilio.
+   * Comprueba que el número no esté en uso y respeta cooldown entre envíos.
+   */
+  async sendPhoneVerificationCode(userId: string, phone: string): Promise<void> {
+    if (!isTwilioConfigured()) {
+      throw new Error('Phone verification is not configured (Twilio).');
+    }
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { phoneVerifiedAt: true },
+    });
+    if (!currentUser) {
+      throw new Error('User not found');
+    }
+    if (currentUser.phoneVerifiedAt != null) {
+      throw new Error('Phone is already verified and cannot be changed');
+    }
+    const normalizedPhone = normalizePhoneToE164(phone);
+    if (!normalizedPhone) {
+      throw new Error('Invalid phone number');
+    }
+    const existingByPhone = await prisma.user.findFirst({
+      where: {
+        phone: normalizedPhone,
+        id: { not: userId },
+      },
+    });
+    if (existingByPhone) {
+      throw new Error('Phone number is already in use by another account');
+    }
+
+    const cooldownSeconds = config.phoneCodeCooldownSeconds;
+    const now = new Date();
+    const record = await prisma.phoneCodeSend.findUnique({
+      where: { phone: normalizedPhone },
+    });
+    if (record) {
+      const elapsed = (now.getTime() - record.lastSentAt.getTime()) / 1000;
+      if (elapsed < cooldownSeconds) {
+        const retryAfter = Math.ceil(cooldownSeconds - elapsed);
+        throw new PhoneCodeCooldownError(
+          `Espera ${retryAfter} segundos antes de solicitar otro código.`,
+          retryAfter,
+        );
+      }
+    }
+
+    await sendVerificationCode(normalizedPhone);
+    await prisma.phoneCodeSend.upsert({
+      where: { phone: normalizedPhone },
+      create: { phone: normalizedPhone, lastSentAt: now },
+      update: { lastSentAt: now },
+    });
+  }
+
+  /**
+   * Verifica el código con Twilio y, si es correcto, actualiza el usuario.
+   */
+  async confirmPhoneVerification(
+    userId: string,
+    phone: string,
+    code: string,
+  ): Promise<Omit<User, 'password'>> {
+    if (!isTwilioConfigured()) {
+      throw new Error('Phone verification is not configured (Twilio).');
+    }
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { phoneVerifiedAt: true, phone: true },
+    });
+    if (!currentUser) {
+      throw new Error('User not found');
+    }
+    if (currentUser.phoneVerifiedAt != null) {
+      throw new Error('Phone is already verified and cannot be changed');
+    }
+    const existingByPhone = await prisma.user.findFirst({
+      where: {
+        phone: phone.trim(),
+        id: { not: userId },
+      },
+    });
+    if (existingByPhone) {
+      throw new Error('Phone number is already in use by another account');
+    }
+
+    const valid = await checkVerificationCode(phone.trim(), code.trim());
+    if (!valid) {
+      throw new Error('Invalid or expired verification code');
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        phone: phone.trim(),
+        phoneVerifiedAt: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        phoneVerifiedAt: true,
+        avatar: true,
+        avatarSeed: true,
+        location: true,
+        country: true,
+        gender: true,
+        role: true,
+        workplaceId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
     return updatedUser;
   }
 
@@ -506,12 +652,14 @@ export class AuthService {
         email: true,
         name: true,
         phone: true,
+        phoneVerifiedAt: true,
         avatar: true,
         avatarSeed: true,
         location: true,
         country: true,
         gender: true,
         role: true,
+        workplaceId: true,
         createdAt: true,
         updatedAt: true,
       },
