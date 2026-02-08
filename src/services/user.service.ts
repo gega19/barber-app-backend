@@ -270,6 +270,21 @@ class UserService {
       },
     });
 
+    // Sync workplace update to Barber profile if exists
+    if (data.workplaceId !== undefined) {
+      // Check if user has a barber profile using the email from the updated user
+      const barber = await prisma.barber.findUnique({
+        where: { email: user.email },
+      });
+
+      if (barber) {
+        await prisma.barber.update({
+          where: { id: barber.id },
+          data: { workplaceId: data.workplaceId },
+        });
+      }
+    }
+
     return {
       ...user,
       role: user.role.toString(),
