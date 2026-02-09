@@ -95,6 +95,11 @@ class CompetitionService {
       },
     });
 
+    console.log(`[Competition] Found ${appointments.length} completed appointments for period ${periodId}`);
+    if (appointments.length > 0) {
+      console.log(`[Competition] details: ${JSON.stringify(appointments.map(a => ({ id: a.id, userId: a.userId, verified: a.user?.phoneVerifiedAt })))}`);
+    }
+
     const validAppointments = appointments.filter(
       (a) => a.user?.phoneVerifiedAt != null
     );
@@ -438,18 +443,36 @@ class CompetitionService {
     if (!appointment || appointment.status !== 'COMPLETED') return;
 
     // Find active or just closed period that covers this date
-    // We check both ACTIVE and CLOSED because a period might have just closed 
-    // but we still want to count late completions if they fall within the range
-    const period = await prisma.competitionPeriod.findFirst({
+    // We fetch candidate periods (Active or Closed) and check dates in Javascript 
+    // to avoid timezone/time-component issues with Prisma queries
+    const candidatePeriods = await prisma.competitionPeriod.findMany({
       where: {
-        startDate: { lte: appointment.date },
-        endDate: { gte: appointment.date },
-      },
+        status: { in: ['ACTIVE', 'CLOSED'] }
+      }
+    });
+
+    const appointmentDate = new Date(appointment.date);
+
+    // Find matching period: Period Start <= Appointment Date <= Period End
+    // We normalize to ignore time for the comparison if needed, 
+    // but typically appointment.date is 00:00. 
+    // We want: startOfPeriodDay <= appointmentDate <= endOfPeriodDay
+
+    const period = candidatePeriods.find(p => {
+      const start = new Date(p.startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(p.endDate);
+      end.setHours(23, 59, 59, 999);
+
+      return appointmentDate >= start && appointmentDate <= end;
     });
 
     if (period) {
       console.log(`[Competition] Recomputing points for period ${period.id} due to appointment ${appointmentId}`);
       await this.recomputePeriodPoints(period.id);
+    } else {
+      console.log(`[Competition] No period found covering appointment date ${appointmentDate.toISOString()}`);
     }
   }
 }
