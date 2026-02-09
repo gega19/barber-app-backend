@@ -453,7 +453,20 @@ class CompetitionService {
     const candidatePeriods = await prisma.competitionPeriod.findMany({
       where: {
         status: { in: ['ACTIVE', 'CLOSED'] }
+      },
+      orderBy: {
+        // Prioritize ACTIVE periods first, then sort by start date
+        status: 'asc', // 'ACTIVE' comes before 'CLOSED' alphabetically? No.
+        // Let's sort manually in JS or use specific order if possible.
+        // Actually, just fetching them and sorting in JS is safer.
       }
+    });
+
+    // Sort: ACTIVE first, then others.
+    candidatePeriods.sort((a, b) => {
+      if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1;
+      if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1;
+      return 0;
     });
 
     const appointmentDate = new Date(appointment.date);
