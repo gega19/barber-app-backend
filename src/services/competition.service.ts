@@ -76,33 +76,38 @@ class CompetitionService {
     });
     if (!period) throw new Error('Period not found');
     if (period.status === CompetitionPeriodStatus.CLOSED) {
-      throw new Error('No se puede recalcular un periodo ya cerrado. Las puntuaciones quedaron guardadas al cerrar.');
+      console.warn(`[Competition] Recalculating points for CLOSED period ${periodId}. This happens when appointments are completed after close.`);
     }
 
-    const start = new Date(period.startDate);
-    start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(period.endDate);
-    end.setUTCHours(23, 59, 59, 999);
-
+    // Fetch all completed appointments with verified users
+    // We filter by date in memory to match handleAppointmentCompletion logic
     const appointments = await prisma.appointment.findMany({
       where: {
         status: 'COMPLETED',
         userId: { not: null },
-        date: { gte: start, lte: end },
       },
       include: {
         user: { select: { phoneVerifiedAt: true } },
       },
     });
 
-    console.log(`[Competition] Found ${appointments.length} completed appointments for period ${periodId}`);
-    if (appointments.length > 0) {
-      console.log(`[Competition] details: ${JSON.stringify(appointments.map(a => ({ id: a.id, userId: a.userId, verified: a.user?.phoneVerifiedAt })))}`);
-    }
+    console.log(`[Competition] Found ${appointments.length} total completed appointments. Filtering for period ${period.startDate.toISOString()} - ${period.endDate.toISOString()}`);
 
-    const validAppointments = appointments.filter(
-      (a) => a.user?.phoneVerifiedAt != null
-    );
+    const periodStart = new Date(period.startDate);
+    periodStart.setHours(0, 0, 0, 0);
+    const periodEnd = new Date(period.endDate);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    const validAppointments = appointments.filter((a) => {
+      if (!a.user?.phoneVerifiedAt) return false;
+
+      const aptDate = new Date(a.date);
+      // Date check: start <= aptDate <= end
+      return aptDate >= periodStart && aptDate <= periodEnd;
+    });
+
+    console.log(`[Competition] ${validAppointments.length} appointments matched period date range and have verified phone.`);
+
 
     const pointsByBarber = new Map<string, number>();
     const countByBarberClient = new Map<string, Map<string, number>>();
