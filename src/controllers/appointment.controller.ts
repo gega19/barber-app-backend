@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import appointmentService from '../services/appointment.service';
+import competitionService from '../services/competition.service';
 import prisma from '../config/prisma';
 
 class AppointmentController {
@@ -195,6 +196,12 @@ class AppointmentController {
         paymentMethod,
         notes,
       });
+
+      if (status === 'COMPLETED') {
+        competitionService.handleAppointmentCompletion(id).catch(err => {
+          console.error('Error updating competition points:', err);
+        });
+      }
 
       res.status(200).json({
         success: true,
@@ -394,6 +401,11 @@ class AppointmentController {
       // Marcar la cita como COMPLETED (atendida)
       await appointmentService.updateAppointment(id, {
         status: 'COMPLETED',
+      });
+
+      // Actualizar puntos de competencia
+      competitionService.handleAppointmentCompletion(id).catch(err => {
+        console.error('Error updating competition points:', err);
       });
 
       res.status(200).json({

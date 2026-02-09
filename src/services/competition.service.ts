@@ -272,7 +272,7 @@ class CompetitionService {
 
     const mostRecentPeriod = closedPeriods[0];
     const snapshot = mostRecentPeriod.finalStandingsSnapshot as LeaderboardEntry[] | null;
-    
+
     if (!Array.isArray(snapshot) || snapshot.length === 0) {
       return { top1: 0, top2: 0, top3: 0, isLastWinner: false };
     }
@@ -428,6 +428,29 @@ class CompetitionService {
       throw new Error('Solo se pueden eliminar periodos en estado Borrador');
     }
     await prisma.competitionPeriod.delete({ where: { id: periodId } });
+  }
+  async handleAppointmentCompletion(appointmentId: string): Promise<void> {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { date: true, status: true },
+    });
+
+    if (!appointment || appointment.status !== 'COMPLETED') return;
+
+    // Find active or just closed period that covers this date
+    // We check both ACTIVE and CLOSED because a period might have just closed 
+    // but we still want to count late completions if they fall within the range
+    const period = await prisma.competitionPeriod.findFirst({
+      where: {
+        startDate: { lte: appointment.date },
+        endDate: { gte: appointment.date },
+      },
+    });
+
+    if (period) {
+      console.log(`[Competition] Recomputing points for period ${period.id} due to appointment ${appointmentId}`);
+      await this.recomputePeriodPoints(period.id);
+    }
   }
 }
 
