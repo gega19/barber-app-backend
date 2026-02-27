@@ -343,10 +343,12 @@ export class AppointmentService {
 
     if (search) {
       where.OR = [
-        { user: { name: { contains: search } } },
-        { user: { email: { contains: search } } },
-        { barber: { name: { contains: search } } },
-        { barber: { email: { contains: search } } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { barber: { name: { contains: search, mode: 'insensitive' } } },
+        { barber: { email: { contains: search, mode: 'insensitive' } } },
+        { clientName: { contains: search, mode: 'insensitive' } },
+        { clientPhone: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -432,12 +434,12 @@ export class AppointmentService {
           barberId: appointment.barberId,
           serviceId: appointment.serviceId,
           client: {
-            id: appointment.user.id,
-            name: appointment.user.name,
-            email: appointment.user.email,
-            phone: appointment.user.phone,
-            avatar: appointment.user.avatar,
-            avatarSeed: appointment.user.avatarSeed,
+            id: appointment.user?.id || 'guest',
+            name: appointment.user?.name || appointment.clientName || 'Cliente Invitado',
+            email: appointment.user?.email || '',
+            phone: appointment.user?.phone || appointment.clientPhone || '',
+            avatar: appointment.user?.avatar || null,
+            avatarSeed: appointment.user?.avatarSeed || null,
           },
           barber: {
             id: barber.id,
