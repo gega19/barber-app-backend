@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import appointmentController from '../controllers/appointment.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 
 const router = Router();
@@ -15,7 +15,7 @@ router.delete('/admin/:id', authenticate, requireRole('ADMIN'), appointmentContr
 
 // Public routes (authenticated users)
 router.get('/', authenticate, appointmentController.getMyAppointments.bind(appointmentController));
-router.post('/', authenticate, appointmentController.createAppointment.bind(appointmentController));
+router.post('/', optionalAuthenticate, appointmentController.createAppointment.bind(appointmentController));
 router.get('/barber/:barberId/queue', authenticate, appointmentController.getBarberQueue.bind(appointmentController));
 router.get('/:id', authenticate, appointmentController.getAppointmentById.bind(appointmentController));
 router.put('/:id/cancel', authenticate, appointmentController.cancelAppointment.bind(appointmentController));

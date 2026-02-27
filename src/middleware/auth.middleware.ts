@@ -8,7 +8,7 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
         success: false,
@@ -16,9 +16,9 @@ export const authenticate = async (
       });
       return;
     }
-    
+
     const token = authHeader.substring(7);
-    
+
     try {
       const payload = verifyAccessToken(token);
       req.user = payload;
@@ -37,3 +37,29 @@ export const authenticate = async (
   }
 };
 
+export const optionalAuthenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      const payload = verifyAccessToken(token);
+      req.user = payload;
+      next();
+    } catch (error) {
+      // Ignoramos el error y continuamos como invitado
+      next();
+    }
+  } catch (error) {
+    next();
+  }
+};

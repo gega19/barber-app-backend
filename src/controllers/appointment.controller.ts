@@ -54,13 +54,6 @@ class AppointmentController {
   async createAppointment(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({
-          success: false,
-          message: 'Unauthorized',
-        });
-        return;
-      }
 
       const { barberId, serviceId, date, time, paymentMethod, paymentProof, notes, currentTime, clientName, clientPhone } = req.body;
 
