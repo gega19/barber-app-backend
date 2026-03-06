@@ -105,7 +105,9 @@ export class AuthController {
   async requestPasswordResetCode(req: Request, res: Response): Promise<void> {
     try {
       const data: RequestPasswordResetCodeDto = req.body;
+      console.log('[requestPasswordResetCode] Request received, email:', data.email);
       await authService.requestPasswordResetCode(data);
+      console.log('[requestPasswordResetCode] Success, code sent to:', data.email);
 
       res.status(200).json({
         success: true,
@@ -113,6 +115,7 @@ export class AuthController {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to send password reset code';
+      console.log('[requestPasswordResetCode] Error:', message);
       const isBusinessError =
         message.includes('not found') ||
         message.includes('not configured');

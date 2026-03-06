@@ -253,6 +253,7 @@ export class AuthService {
   }
 
   async requestPasswordResetCode(data: RequestPasswordResetCodeDto): Promise<void> {
+    console.log('[auth.service] requestPasswordResetCode - buscando usuario con email:', data.email);
     const user = await prisma.user.findUnique({
       where: { email: data.email },
       select: {
@@ -263,10 +264,13 @@ export class AuthService {
     });
 
     if (!user) {
+      console.log('[auth.service] requestPasswordResetCode - usuario NO encontrado');
       throw new Error('User not found with this email');
     }
+    console.log('[auth.service] requestPasswordResetCode - usuario encontrado:', user.id, user.email);
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('[auth.service] requestPasswordResetCode - codigo generado (6 digitos)');
     const hashedCode = await hashPassword(code);
 
     await prisma.user.update({
@@ -276,8 +280,11 @@ export class AuthService {
         mustUpdatePassword: true,
       },
     });
+    console.log('[auth.service] requestPasswordResetCode - password temporal actualizado en DB');
 
+    console.log('[auth.service] requestPasswordResetCode - enviando email a:', user.email);
     await sendPasswordResetCodeEmail(user.email, code);
+    console.log('[auth.service] requestPasswordResetCode - email enviado correctamente');
   }
 
   async logout(userId: string, refreshToken: string): Promise<void> {
