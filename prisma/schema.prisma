@@ -25,6 +25,7 @@ model User {
   id               String         @id @default(cuid())
   email            String         @unique
   password         String
+  mustUpdatePassword Boolean      @default(false)
   name             String
   phone            String?   @unique
   phoneVerifiedAt  DateTime?

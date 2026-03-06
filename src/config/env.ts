@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { getMailConfig } from './smtp';
 
 // Always try to load .env - it's safe to call multiple times
 // Try multiple possible paths (CommonJS - __dirname is available)
@@ -90,6 +91,8 @@ export const config = {
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID || '',
   },
+
+  mail: getMailConfig(),
 
   phoneCodeCooldownSeconds: parseInt(
     process.env.PHONE_CODE_COOLDOWN_SECONDS || '60',

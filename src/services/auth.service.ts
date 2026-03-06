@@ -9,6 +9,7 @@ import {
   sendVerificationCode,
   checkVerificationCode,
 } from './twilio.service';
+import { sendPasswordResetCodeEmail } from './mail.service';
 
 /** Error cuando el cooldown de reenvío no ha pasado. retryAfterSeconds indica segundos restantes. */
 export class PhoneCodeCooldownError extends Error {
@@ -25,6 +26,7 @@ type User = {
   id: string;
   email: string;
   name: string;
+  mustUpdatePassword?: boolean;
   phone?: string | null;
   phoneVerifiedAt?: Date | null;
   avatar?: string | null;
@@ -50,6 +52,10 @@ export interface RegisterDto {
 export interface LoginDto {
   email: string;
   password: string;
+}
+
+export interface RequestPasswordResetCodeDto {
+  email: string;
 }
 
 export interface AuthResponse {
@@ -89,6 +95,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        mustUpdatePassword: true,
         phone: true,
         phoneVerifiedAt: true,
         avatar: true,
@@ -153,6 +160,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        mustUpdatePassword: true,
         phone: true,
         phoneVerifiedAt: true,
         avatar: true,
@@ -224,6 +232,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        mustUpdatePassword: user.mustUpdatePassword,
         phone: user.phone,
         phoneVerifiedAt: user.phoneVerifiedAt,
         avatar: user.avatar,
@@ -241,6 +250,34 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  async requestPasswordResetCode(data: RequestPasswordResetCodeDto): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found with this email');
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedCode = await hashPassword(code);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedCode,
+        mustUpdatePassword: true,
+      },
+    });
+
+    await sendPasswordResetCodeEmail(user.email, code);
   }
 
   async logout(userId: string, refreshToken: string): Promise<void> {
@@ -282,6 +319,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        mustUpdatePassword: true,
         phone: true,
         phoneVerifiedAt: true,
         avatar: true,
@@ -316,6 +354,7 @@ export class AuthService {
           id: true,
           email: true,
           name: true,
+          mustUpdatePassword: true,
           phone: true,
           phoneVerifiedAt: true,
           avatar: true,

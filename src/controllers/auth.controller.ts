@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import authService, {
   LoginDto,
   RegisterDto,
+  RequestPasswordResetCodeDto,
   PhoneCodeCooldownError,
 } from '../services/auth.service';
 
@@ -95,6 +96,27 @@ export class AuthController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Token refresh failed';
       res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+  }
+
+  async requestPasswordResetCode(req: Request, res: Response): Promise<void> {
+    try {
+      const data: RequestPasswordResetCodeDto = req.body;
+      await authService.requestPasswordResetCode(data);
+
+      res.status(200).json({
+        success: true,
+        message: 'Codigo temporal enviado al correo',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send password reset code';
+      const isBusinessError =
+        message.includes('not found') ||
+        message.includes('not configured');
+      res.status(isBusinessError ? 400 : 500).json({
         success: false,
         message,
       });

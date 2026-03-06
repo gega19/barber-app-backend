@@ -5,6 +5,7 @@ import {
   registerValidator,
   loginValidator,
   refreshTokenValidator,
+  requestPasswordResetCodeValidator,
   sendPhoneCodeValidator,
   confirmPhoneWithCodeValidator,
 } from '../validators/auth.validator';
@@ -35,6 +36,11 @@ const validate = (validations: any[]) => {
 router.post('/register', validate(registerValidator), authController.register.bind(authController));
 router.post('/login', validate(loginValidator), authController.login.bind(authController));
 router.post('/refresh-token', validate(refreshTokenValidator), authController.refreshToken.bind(authController));
+router.post(
+  '/request-password-reset-code',
+  validate(requestPasswordResetCodeValidator),
+  authController.requestPasswordResetCode.bind(authController),
+);
 
 // Protected routes
 router.post('/logout', authenticate, authController.logout.bind(authController));

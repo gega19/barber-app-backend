@@ -55,6 +55,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "nodemailer": "^8.0.1",
     "pg": "^8.16.3",
     "prisma": "^6.19.0",
     "reflect-metadata": "^0.2.2",
@@ -64,6 +65,7 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@types/nodemailer": "^7.0.11",
     "concurrently": "^9.2.1",
     "nodemon": "^3.1.10"
   }
