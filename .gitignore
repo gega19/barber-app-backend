@@ -15,6 +15,9 @@ dist/
 # Environment variables
 .env
 .env.local
+
+# SMTP config (contains credentials)
+config/smtp.json
 .env.development.local
 .env.test.local
 .env.production.local

@@ -49,6 +49,13 @@ export const refreshTokenValidator: ValidationChain[] = [
     .withMessage('Refresh token is required'),
 ];
 
+export const requestPasswordResetCodeValidator: ValidationChain[] = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email')
+    .normalizeEmail(),
+];
+
 export const confirmPhoneValidator: ValidationChain[] = [
   body('phone')
     .trim()
