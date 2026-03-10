@@ -270,8 +270,8 @@ class UserService {
       },
     });
 
-    // Sync workplace update to Barber profile if exists
-    if (data.workplaceId !== undefined) {
+    // Sync workplace and other data to Barber profile if exists
+    if (data.name !== undefined || data.location !== undefined || data.workplaceId !== undefined) {
       // Check if user has a barber profile using the email from the updated user
       const barber = await prisma.barber.findUnique({
         where: { email: user.email },
@@ -280,8 +280,18 @@ class UserService {
       if (barber) {
         await prisma.barber.update({
           where: { id: barber.id },
-          data: { workplaceId: data.workplaceId },
+          data: {
+            ...(data.name !== undefined && { name: data.name }),
+            ...(data.location !== undefined && { location: data.location }),
+            ...(data.workplaceId !== undefined && { workplaceId: data.workplaceId }),
+          },
         });
+
+        // Importar BarberService para recomputar wallScore
+        // Nota: BarberService ya está importado en AuthService, pero aquí necesitamos asegurarnos
+        // de que los cambios se reflejen en el ranking.
+        const barberService = (await import('./barber.service')).default;
+        await barberService.recomputeWallScore(barber.id);
       }
     }
 
