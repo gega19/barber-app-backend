@@ -29,6 +29,8 @@ import appVersionRoutes from './routes/app-version.routes';
 import legalDocumentRoutes from './routes/legal-document.routes';
 import myWorkplaceRoutes from './routes/my-workplace.routes';
 import competitionRoutes from './routes/competition.routes';
+import reminderRoutes from './routes/reminder.routes';
+import reminderScheduler from './services/reminder.scheduler';
 import path from 'path';
 import express from 'express';
 import http from 'http';
@@ -73,6 +75,7 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/legal', legalDocumentRoutes);
 app.use('/api/my-workplace', myWorkplaceRoutes);
 app.use('/api/competition', competitionRoutes);
+app.use('/api', reminderRoutes);
 
 // Rutas de app version (públicas y admin)
 app.use('/api/app', appVersionRoutes);
@@ -145,6 +148,9 @@ const startServer = async () => {
 
     // Initialize Socket.IO server
     createSocketServer(httpServer);
+
+    // Initializamos el scheduler de recordatorios
+    reminderScheduler.start();
 
     // Start listening
     // In production (Render), listen on 0.0.0.0 to accept external connections

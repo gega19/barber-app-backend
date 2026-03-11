@@ -323,6 +323,18 @@ export class AppointmentService {
               barberId: appointment.barberId,
             },
           });
+
+          // Enviar notificación al cliente (si está registrado)
+          if (data.userId) {
+            await notificationService.sendNotificationToUser(data.userId, {
+              title: 'Cita confirmada 📅',
+              body: `Tu cita con ${barber.name} es el ${dateTimeStr}.`,
+              data: {
+                type: 'appointment_created_client',
+                appointmentId: appointment.id,
+              },
+            });
+          }
         } catch (error) {
           console.error('Error sending notification to barber:', error);
           // No fallar la operación si la notificación falla

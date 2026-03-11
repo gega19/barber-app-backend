@@ -136,6 +136,7 @@ export class BarberService {
       return {
         ...barber,
         avatar: user?.avatar || barber.image,
+        image: user?.avatar || barber.image,
         avatarSeed: user?.avatarSeed ?? `${barber.name}-${barber.id.slice(-6)}`,
         phone: user?.phone,
         isLastWinner: topPositions.isLastWinner,
@@ -193,6 +194,7 @@ export class BarberService {
       return {
         ...barber,
         avatar: user?.avatar || barber.image,
+        image: user?.avatar || barber.image,
         avatarSeed: user?.avatarSeed ?? `${barber.name}-${barber.id.slice(-6)}`,
         phone: user?.phone,
         isLastWinner: topPositions.isLastWinner,
@@ -244,6 +246,7 @@ export class BarberService {
     return {
       ...barber,
       avatar: user?.avatar || barber.image,
+      image: user?.avatar || barber.image,
       avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
       phone: user?.phone,
       isLastWinner: topPositions.isLastWinner,
@@ -348,6 +351,7 @@ export class BarberService {
         return {
           ...barber,
           avatar: user?.avatar || barber.image,
+          image: user?.avatar || barber.image,
           avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
         };
       })
@@ -383,6 +387,7 @@ export class BarberService {
         return {
           ...barber,
           avatar: user?.avatar || barber.image,
+          image: user?.avatar || barber.image,
           avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
           phone: user?.phone,
           isLastWinner: topPositions.isLastWinner,
@@ -453,6 +458,7 @@ export class BarberService {
         return {
           ...barber,
           avatar: user?.avatar || barber.image,
+          image: user?.avatar || barber.image,
           avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
           favoritedAt: fav.createdAt,
           phone: user?.phone,
@@ -493,6 +499,7 @@ export class BarberService {
     return {
       ...barber,
       avatar: user?.avatar || barber.image,
+      image: user?.avatar || barber.image,
       avatarSeed: user?.avatarSeed ?? `${barber.email}-${barber.id}`,
     };
   }
@@ -506,7 +513,7 @@ export class BarberService {
     barberIds: string[]
   ): Promise<Map<string, { top1: number; top2: number; top3: number; isLastWinner: boolean }>> {
     const topPositionsMap = new Map<string, { top1: number; top2: number; top3: number; isLastWinner: boolean }>();
-    
+
     if (barberIds.length === 0) return topPositionsMap;
 
     // Get all closed periods with snapshots
@@ -529,14 +536,14 @@ export class BarberService {
     if (closedPeriods.length > 0) {
       const mostRecentPeriod = closedPeriods[0];
       const snapshot = mostRecentPeriod.finalStandingsSnapshot as any[] | null;
-      
+
       if (Array.isArray(snapshot) && snapshot.length > 0) {
         for (const entry of snapshot) {
           if (!entry?.barberId || !barberIds.includes(entry.barberId)) continue;
           if (entry.position < 1 || entry.position > 3) continue;
 
           const isLastWinner = entry.position === 1 && mostRecentPeriod.winnerBarberId === entry.barberId;
-          
+
           if (entry.position === 1) {
             topPositionsMap.set(entry.barberId, { top1: 1, top2: 0, top3: 0, isLastWinner });
           } else if (entry.position === 2) {
