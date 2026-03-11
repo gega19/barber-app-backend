@@ -1,8 +1,0 @@
-{
-  "host": "smtp.bartopve.com",
-  "port": 587,
-  "secure": false,
-  "user": "contacto@bartopve.com",
-  "pass": "Espiderman20$$",
-  "from": "Barber App <contacto@bartopve.com>"
-}

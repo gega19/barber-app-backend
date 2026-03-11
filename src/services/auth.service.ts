@@ -825,6 +825,26 @@ export class AuthService {
     });
     await barberService.recomputeWallScore(barber.id);
   }
+
+  async changePassword(userId: string, newPassword: string): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        mustUpdatePassword: false,
+      },
+    });
+  }
 }
 
 export default new AuthService();

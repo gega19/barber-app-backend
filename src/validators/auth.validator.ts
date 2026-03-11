@@ -91,3 +91,11 @@ export const confirmPhoneWithCodeValidator: ValidationChain[] = [
     .withMessage('Code must be between 4 and 8 characters'),
 ];
 
+export const changePasswordValidator: ValidationChain[] = [
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+];
+

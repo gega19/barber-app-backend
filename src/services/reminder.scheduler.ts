@@ -5,8 +5,8 @@ import { getNowInAppTimezone, getAppointmentDateTime } from '../utils/timezone';
 
 export class ReminderScheduler {
   public start() {
-    // Corre cada 15 minutos
-    cron.schedule('*/15 * * * *', async () => {
+    // Corre cada 5 minutos (balance ideal entre precisión y rendimiento)
+    cron.schedule('*/5 * * * *', async () => {
       console.log('[Reminder] Checking upcoming appointments...');
       await this.checkAndSendReminders();
     });
@@ -17,14 +17,23 @@ export class ReminderScheduler {
       // Obtenemos hora actual en la timezone de la app
       const now = getNowInAppTimezone();
       const nowMs = now.getTime();
+      
+      // Configurar rangos de fechas (desde hoy hasta 2 días adelante) para no cargar toda la base de datos
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const twoDaysFromNow = new Date(today);
+      twoDaysFromNow.setDate(today.getDate() + 2);
 
-      // Buscamos solo citas pendientes o confirmadas que puedan faltar por recordatorio
-      // Solo traemos citas con userId, ya que los invitados no tienen app para push
+      // Buscamos citas pendientes usando índices de fecha para mejor rendimiento
+      // Solo traemos citas de entre hoy y mañana con userId (para Push)
       const appointments = await prisma.appointment.findMany({
         where: {
           status: { not: 'CANCELLED' },
           userId: { not: null },
-          // Filtrar por citas que no tengan ya los recordatorios listos
+          // Filtrar a nivel base de datos para no afectar rendimiento con miles de citas
+          date: {
+            gte: today,
+            lte: twoDaysFromNow
+          },
           OR: [
             { reminder24hSentAt: null },
             { reminder1hSentAt: null }
@@ -40,8 +49,13 @@ export class ReminderScheduler {
         const diffMs = aptDate.getTime() - nowMs;
         const diffHours = diffMs / (1000 * 60 * 60);
 
-        // Ventana de 24 horas: si faltan entre 24 y 25 horas
-        if (diffHours > 24 && diffHours <= 25 && !apt.reminder24hSentAt) {
+        // Ya pasó la hora de la cita
+        if (diffHours < 0) continue;
+
+        // Ventana de 24 horas: si faltan entre 23 y 25 horas
+        // Ampliamos la ventana a 23-25 para asegurar que no se salte si el cron se retrasa
+        if (diffHours > 23 && diffHours <= 25 && !apt.reminder24hSentAt) {
+          console.log(`[Reminder] Sending 24h reminder for ${apt.id}`);
           await this.sendReminder(apt.id, apt.userId!, apt.barber.name, apt.date, apt.time, 24);
           await prisma.appointment.update({
             where: { id: apt.id },
@@ -49,8 +63,10 @@ export class ReminderScheduler {
           });
         }
 
-        // Ventana de 1 hora: si faltan entre 1 y 1.25 horas
-        if (diffHours > 1 && diffHours <= 1.25 && !apt.reminder1hSentAt) {
+        // Ventana de 1 hora: si faltan entre 0 y 1.25 horas
+        // Ampliamos la ventana para enviar justo antes
+        if (diffHours > 0 && diffHours <= 1.25 && !apt.reminder1hSentAt) {
+          console.log(`[Reminder] Sending 1h reminder for ${apt.id}`);
           await this.sendReminder(apt.id, apt.userId!, apt.barber.name, apt.date, apt.time, 1);
           await prisma.appointment.update({
             where: { id: apt.id },

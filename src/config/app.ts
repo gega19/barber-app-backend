@@ -155,7 +155,7 @@ export const createApp = (): Application => {
   // API Routes will be added here
   app.get('/api', (req, res) => {
     res.json({
-      message: 'Welcome to Barber App API',
+      message: 'Welcome to Bartop API',
       version: '1.0.0',
     });
   });

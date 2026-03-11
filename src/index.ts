@@ -159,7 +159,7 @@ const startServer = async () => {
       console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║   🚀 Barber App Backend Server Running                        ║
+║   🚀 Bartop Backend Server Running                            ║
 ║                                                               ║
 ║   Environment: ${config.nodeEnv.padEnd(47)}║
 ║   Host:        ${host.padEnd(47)}║

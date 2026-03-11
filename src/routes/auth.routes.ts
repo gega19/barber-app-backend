@@ -8,6 +8,7 @@ import {
   requestPasswordResetCodeValidator,
   sendPhoneCodeValidator,
   confirmPhoneWithCodeValidator,
+  changePasswordValidator,
 } from '../validators/auth.validator';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -52,6 +53,7 @@ router.post('/confirm-phone', authenticate, validate(confirmPhoneWithCodeValidat
 router.delete('/delete-account', authenticate, authController.deleteAccount.bind(authController));
 router.post('/become-barber', authenticate, authController.becomeBarber.bind(authController));
 router.put('/become-barber/step2', authenticate, authController.updateBarberStep2.bind(authController));
+router.put('/change-password', authenticate, validate(changePasswordValidator), authController.changePassword.bind(authController));
 
 export default router;
 
