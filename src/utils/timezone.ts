@@ -1,15 +1,21 @@
 const APP_TZ = process.env.APP_TIMEZONE || 'America/Caracas';
 
 export function getNowInAppTimezone(): Date {
-  const now = new Date();
-  const localStr = now.toLocaleString('en-US', { timeZone: APP_TZ });
-  return new Date(localStr);
+  // The server runs in timezone offset, so new Date() gives the absolute actual moment
+  return new Date();
 }
 
 export function getAppointmentDateTime(date: Date, time: string): Date {
-  // Combine date (without time) + time string (e.g. "10:00") in the app's TZ
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  const localStr = `${dateStr}T${time}:00`;
-  // Interpret as local time in app TZ, then convert to UTC for comparison
-  return new Date(new Date(localStr).toLocaleString('en-US', { timeZone: 'UTC' }));
+  const [hours, minutes] = time.split(':').map(Number);
+  // date in DB is UTC midnight (or noon). We extract the exact year, month, day it intends.
+  // We then use the native Date constructor, which uses the server's local timezone (America/Caracas).
+  return new Date(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
 }
