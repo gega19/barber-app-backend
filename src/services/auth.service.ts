@@ -515,6 +515,26 @@ export class AuthService {
       },
     });
 
+    // Sincronizar con el perfil de barbero si existe
+    if (data.name !== undefined || data.location !== undefined || data.avatar !== undefined) {
+      const barber = await prisma.barber.findUnique({
+        where: { email: updatedUser.email },
+      });
+
+      if (barber) {
+        await prisma.barber.update({
+          where: { id: barber.id },
+          data: {
+            ...(data.name !== undefined && { name: data.name }),
+            ...(data.location !== undefined && { location: data.location }),
+            ...(data.avatar !== undefined && { image: data.avatar }),
+          },
+        });
+        // Recomputar wallScore ya que cambiaron datos del perfil
+        await barberService.recomputeWallScore(barber.id);
+      }
+    }
+
     return updatedUser;
   }
 
