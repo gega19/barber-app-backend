@@ -19,6 +19,10 @@ function getTransporter(): nodemailer.Transporter {
       host: config.mail.host,
       port: config.mail.port,
       secure: config.mail.secure,
+      pool: true,
+      maxConnections: 1,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
       auth: {
         user: config.mail.user,
         pass: config.mail.pass,
