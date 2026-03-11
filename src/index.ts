@@ -30,6 +30,7 @@ import legalDocumentRoutes from './routes/legal-document.routes';
 import myWorkplaceRoutes from './routes/my-workplace.routes';
 import competitionRoutes from './routes/competition.routes';
 import reminderRoutes from './routes/reminder.routes';
+import barberDashboardRoutes from './routes/barber-dashboard.routes';
 import reminderScheduler from './services/reminder.scheduler';
 import path from 'path';
 import express from 'express';
@@ -76,6 +77,7 @@ app.use('/api/legal', legalDocumentRoutes);
 app.use('/api/my-workplace', myWorkplaceRoutes);
 app.use('/api/competition', competitionRoutes);
 app.use('/api', reminderRoutes);
+app.use('/api/barber-dashboard', barberDashboardRoutes);
 
 // Rutas de app version (públicas y admin)
 app.use('/api/app', appVersionRoutes);

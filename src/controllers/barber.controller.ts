@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import barberService from '../services/barber.service';
+import analyticsService from '../services/analytics.service';
 import prisma from '../config/prisma';
 
 class BarberController {
@@ -110,6 +111,17 @@ class BarberController {
         });
         return;
       }
+
+      // Track profile view asynchronously (non-blocking)
+      setImmediate(() => {
+        analyticsService.trackEvent({
+          eventType: 'VIEW',
+          eventName: 'BARBER_PROFILE_VIEW',
+          platform: 'app',
+          userId: req.user?.userId ?? null,
+          properties: { barberId: id },
+        }).catch(() => {}); // Silently ignore analytics errors
+      });
 
       res.status(200).json({
         success: true,
@@ -287,6 +299,17 @@ class BarberController {
         });
         return;
       }
+
+      // Track profile view asynchronously (non-blocking)
+      setImmediate(() => {
+        analyticsService.trackEvent({
+          eventType: 'VIEW',
+          eventName: 'BARBER_PROFILE_VIEW',
+          platform: 'app',
+          userId: req.user?.userId ?? null,
+          properties: { barberId: (barber as any).id },
+        }).catch(() => {}); // Silently ignore analytics errors
+      });
 
       res.status(200).json({
         success: true,
